@@ -13,7 +13,7 @@
     "dev": "tsx src/cli.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --ext .ts",
-    "serve:examples": "npx serve examples -p 3333 -C"
+    "serve:examples": "pnpm exec serve examples -p 3333 -C"
   },
   "keywords": [
     "chrome",
@@ -34,6 +34,7 @@
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   },
+  "packageManager": "pnpm@10.28.2",
   "engines": {
     "node": ">=18.0.0"
   },

@@ -15,14 +15,14 @@ chrome-jig is a CLI for Chrome debugging workflows: launch, inject scripts, eval
 ## Installation
 
 ```bash
-# From npm
-npm install -g chrome-jig
+# From npm registry
+pnpm add -g chrome-jig
 
 # Or for development
 git clone https://github.com/yourname/chrome-jig.git
 cd chrome-jig
-npm install
-npm link
+pnpm install
+pnpm link --global
 ```
 
 ## Quick Start
@@ -137,7 +137,7 @@ cjig repl                         # Interactive REPL
     "debounce": 300
   },
   "hooks": {
-    "preBuild": "npm run build:harnesses"
+    "preBuild": "pnpm build:harnesses"
   }
 }
 ```

@@ -606,7 +606,7 @@ The `examples/` directory and `.cjig.json` at the project root provide a self-co
 
 ```bash
 # Terminal 1: serve example scripts over HTTP
-npm run serve:examples        # npx serve examples -p 3333 -C
+pnpm serve:examples           # pnpm exec serve examples -p 3333 -C
 
 # Terminal 2: the development loop
 cjig launch
@@ -618,4 +618,4 @@ The `fancy-demo` harness is a particle-system overlay chosen because visual chan
 
 ### Build vs Source
 
-The global `cjig` command (installed via `npm link`) loads `dist/cli.js`. You must run `npm run build` after source changes for the global command to pick them up. Use `npm run dev -- <cmd>` during development to run directly from TypeScript source via `tsx`.
+The global `cjig` command (installed via `pnpm link --global`) loads `dist/cli.js`. You must run `pnpm build` after source changes for the global command to pick them up. Use `pnpm dev -- <cmd>` during development to run directly from TypeScript source via `tsx`.

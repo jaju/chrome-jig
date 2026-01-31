@@ -12,17 +12,17 @@ A CLI tool for Chrome debugging with CDP (Chrome DevTools Protocol), script inje
 
 ```bash
 # Build
-npm run build
+pnpm build
 
-# Test locally (after npm link)
+# Test locally (after pnpm link --global)
 cjig launch           # Start Chrome with debugging
 cjig tabs             # List open tabs
 cjig eval "document.title"  # One-shot JavaScript evaluation
 cjig repl             # Interactive REPL
 
 # Development
-npm run dev -- <command>      # Run without building (via tsx)
-npm run typecheck             # TypeScript validation
+pnpm dev -- <command>         # Run without building (via tsx)
+pnpm typecheck                # TypeScript validation
 ```
 
 ## Project Structure
@@ -136,7 +136,7 @@ The REPL uses dot-prefix for commands (`.tabs`, `.inject`, `.watch`) and evaluat
 ### Testing Changes
 
 ```bash
-npm run build                 # Compile TypeScript
+pnpm build                    # Compile TypeScript
 cjig status                   # Test the command
 cjig repl                     # Interactive testing
 ```
@@ -171,6 +171,11 @@ Named scripts allow:
 - File watching knows what to re-inject
 
 ## Conventions & Rules
+
+### Package Manager
+
+- This project uses **pnpm**. Do not use npm.
+- Use `pnpm` in place of `npm run`, `npm install`, `npm link`, etc.
 
 ### TypeScript
 

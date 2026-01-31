@@ -98,7 +98,7 @@ The `.cjig.json` file defines the development environment:
     "debounce": 300
   },
   "hooks": {
-    "preBuild": "npm run build:harnesses"
+    "preBuild": "pnpm build:harnesses"
   }
 }
 ```
