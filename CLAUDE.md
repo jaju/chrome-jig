@@ -19,6 +19,7 @@ cjig launch           # Start Chrome with debugging
 cjig tabs             # List open tabs
 cjig eval "document.title"  # One-shot JavaScript evaluation
 cjig repl             # Interactive REPL
+cjig serve --stdio    # JSON-RPC 2.0 server over stdio
 
 # Development
 pnpm dev -- <command>         # Run without building (via tsx)
@@ -47,10 +48,16 @@ chrome-jig/
 │   │   ├── init.ts           # Project config generation
 │   │   ├── install-skill.ts  # Claude skill installation
 │   │   ├── launch.ts         # Chrome launcher command
+│   │   ├── serve.ts          # JSON-RPC serve command
 │   │   ├── status.ts         # Chrome status check
 │   │   └── tabs.ts           # Tab listing/selection
+│   ├── session/
+│   │   ├── protocol.ts       # Protocol interface & types
+│   │   ├── session.ts        # Shared session core (method dispatch)
+│   │   ├── repl-protocol.ts  # REPL protocol adapter
+│   │   └── jsonrpc-protocol.ts # JSON-RPC 2.0 adapter
 │   ├── repl/
-│   │   ├── repl.ts           # Interactive REPL engine
+│   │   ├── repl.ts           # Interactive REPL (thin shell over Session)
 │   │   ├── commands.ts       # Dot-command implementations
 │   │   └── completer.ts      # Tab completion
 │   └── utils/

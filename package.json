@@ -1,6 +1,6 @@
 {
   "name": "chrome-jig",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Chrome debugging REPL with CDP, script injection, and Claude skill support",
   "type": "module",
   "main": "dist/index.js",

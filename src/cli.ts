@@ -16,6 +16,7 @@ import { evaluate, formatValue, formatJson } from './commands/eval.js';
 import { evaluateCljs } from './commands/cljs-eval.js';
 import { installSkill, uninstallSkill } from './commands/install-skill.js';
 import { interactiveInit, generateConfig, writeConfig } from './commands/init.js';
+import { serve } from './commands/serve.js';
 
 const USAGE = `
 Chrome Jig - Browser debugging from the command line
@@ -33,6 +34,7 @@ Commands:
   eval <expression>   Evaluate JavaScript
   cljs-eval <code>    Evaluate ClojureScript
   repl                Interactive REPL
+  serve --stdio       JSON-RPC 2.0 server over stdio
   init                Generate project configuration
   config              Show resolved configuration
   env                 Print shell environment setup
@@ -62,6 +64,7 @@ async function main() {
       host: { type: 'string', short: 'H' },
       profile: { type: 'string' },
       json: { type: 'boolean' },
+      stdio: { type: 'boolean' },
       help: { type: 'boolean', short: 'h' },
     },
   });
@@ -280,6 +283,28 @@ async function main() {
         await repl.start();
 
         await connection.disconnect();
+        break;
+      }
+
+      case 'serve': {
+        if (!values.stdio) {
+          console.error('Usage: cjig serve --stdio');
+          console.error('  Currently only --stdio transport is supported.');
+          process.exit(1);
+        }
+
+        const serveConn = createConnection({ host: config.host, port: config.port });
+
+        const serveRunning = await serveConn.isRunning();
+        if (!serveRunning) {
+          console.error(`Chrome not running on ${config.host}:${config.port}`);
+          console.error('Run: cjig launch');
+          process.exit(1);
+        }
+
+        await serveConn.connect();
+        await serve({ connection: serveConn, config });
+        await serveConn.disconnect();
         break;
       }
 

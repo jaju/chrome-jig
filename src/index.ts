@@ -31,6 +31,16 @@ export { buildCoreScript, injectRuntime, invalidateRuntime } from './cljs/runtim
 export { Repl } from './repl/repl.js';
 export type { ReplOptions } from './repl/repl.js';
 
+// Session & Protocols
+export { Session } from './session/session.js';
+export type { MethodHandler, SessionOptions } from './session/session.js';
+export type { Request, ProtocolError, Protocol, LocalContext } from './session/protocol.js';
+export { isProtocolError } from './session/protocol.js';
+export { ReplProtocol } from './session/repl-protocol.js';
+export { JsonRpcProtocol } from './session/jsonrpc-protocol.js';
+export { serve } from './commands/serve.js';
+export type { ServeOptions } from './commands/serve.js';
+
 // Init & Skill
 export { installSkill, uninstallSkill } from './commands/install-skill.js';
 export { generateConfig, writeConfig, interactiveInit } from './commands/init.js';
