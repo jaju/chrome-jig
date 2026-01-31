@@ -107,6 +107,8 @@ export class Session {
   private rl: readline.Interface | null = null;
   private running = false;
   private methods: Record<string, MethodHandler>;
+  private pending = 0;
+  private drainResolve: (() => void) | null = null;
 
   constructor(private options: SessionOptions) {
     this.methods = { ...builtinMethods };
@@ -137,15 +139,18 @@ export class Session {
     if (this.options.prompt) this.rl.prompt();
 
     this.rl.on('line', async (line) => {
-      await this.handleLine(line, output);
+      this.pending++;
+      try {
+        await this.handleLine(line, output);
+      } finally {
+        this.pending--;
+        if (this.pending === 0 && this.drainResolve) {
+          this.drainResolve();
+        }
+      }
       if (this.running && this.options.prompt) {
         this.rl?.prompt();
       }
-    });
-
-    this.rl.on('close', () => {
-      this.running = false;
-      this.options.onExit?.();
     });
 
     if (this.options.prompt) {
@@ -155,8 +160,15 @@ export class Session {
       });
     }
 
-    return new Promise((resolve) => {
-      this.rl?.on('close', resolve);
+    return new Promise<void>((resolve) => {
+      this.rl?.on('close', async () => {
+        if (this.pending > 0) {
+          await new Promise<void>(r => { this.drainResolve = r; });
+        }
+        this.running = false;
+        this.options.onExit?.();
+        resolve();
+      });
     });
   }
 
