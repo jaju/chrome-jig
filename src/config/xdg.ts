@@ -6,7 +6,7 @@
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
-const APP_NAME = 'chrome-debug-repl';
+const APP_NAME = 'cjig';
 
 export interface XDGPaths {
   config: string;      // User configuration

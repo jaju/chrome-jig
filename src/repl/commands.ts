@@ -150,7 +150,7 @@ const commands: Command[] = [
       const url = resolveScriptUrl(ref, ctx.config);
       if (!url) {
         ctx.print(`Script not found: ${ref}`);
-        ctx.print('Use a full URL or configure scripts in .chrome-debug.json');
+        ctx.print('Use a full URL or configure scripts in .cjig.json');
         return;
       }
 
@@ -208,7 +208,7 @@ const commands: Command[] = [
       }
 
       if (ctx.isWatching() && ctx.config.watch.paths.length === 0) {
-        ctx.print('Warning: No watch paths configured in .chrome-debug.json');
+        ctx.print('Warning: No watch paths configured in .cjig.json');
       }
     },
   },

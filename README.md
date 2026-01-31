@@ -1,26 +1,26 @@
-# Chrome Debug REPL
+# Chrome Jig
 
 A CLI tool for Chrome debugging with script injection, file watching, and Claude skill support.
 
 ## Why This Tool
 
-chrome-debug-repl is a CLI for Chrome debugging workflows: launch, inject scripts, evaluate JavaScript, watch files, and re-inject on change. It uses CDP (Chrome DevTools Protocol) underneath — the same protocol that Chrome MCP, Puppeteer, and other tools use.
+chrome-jig is a CLI for Chrome debugging workflows: launch, inject scripts, evaluate JavaScript, watch files, and re-inject on change. It uses CDP (Chrome DevTools Protocol) underneath — the same protocol that Chrome MCP, Puppeteer, and other tools use.
 
-**Where it helps over generic CDP tools**: Compound operations that would otherwise require multiple manual steps. A named script registry resolves short names to URLs via project config (`.chrome-debug.json`). File watching detects changes and re-injects automatically. Idempotent launch reuses an existing Chrome instance instead of failing on port conflicts. These are workflow-level conveniences — they compose CDP primitives, they don't extend them.
+**Where it helps over generic CDP tools**: Compound operations that would otherwise require multiple manual steps. A named script registry resolves short names to URLs via project config (`.cjig.json`). File watching detects changes and re-injects automatically. Idempotent launch reuses an existing Chrome instance instead of failing on port conflicts. These are workflow-level conveniences — they compose CDP primitives, they don't extend them.
 
 **Where it doesn't help**: Single evaluations, screenshots, DOM inspection, network traces. Any CDP client can do these equally well. Chrome MCP's `evaluate_script` and this tool's `eval` both call `Runtime.evaluate` in the end.
 
-**Independent developer workflow**: The CLI is usable without any LLM. `chrome-debug launch && chrome-debug inject my-script && chrome-debug repl` is a complete development loop with no AI in the path.
+**Independent developer workflow**: The CLI is usable without any LLM. `cjig launch && cjig inject my-script && cjig repl` is a complete development loop with no AI in the path.
 
 ## Installation
 
 ```bash
 # From npm
-npm install -g chrome-debug-repl
+npm install -g chrome-jig
 
 # Or for development
-git clone https://github.com/yourname/chrome-debug-repl.git
-cd chrome-debug-repl
+git clone https://github.com/yourname/chrome-jig.git
+cd chrome-jig
 npm install
 npm link
 ```
@@ -29,10 +29,10 @@ npm link
 
 ```bash
 # Launch Chrome with debugging enabled
-chrome-debug launch
+cjig launch
 
 # Start interactive REPL
-chrome-debug repl
+cjig repl
 
 # In REPL:
 > document.title
@@ -51,34 +51,34 @@ Injected: http://localhost:5173/harnesses/my-harness.js
 ### Chrome Management
 
 ```bash
-chrome-debug launch                    # Launch with default profile
-chrome-debug launch --profile=testing  # Named profile
-chrome-debug status                    # Check if Chrome is running
-chrome-debug status --host=192.168.1.5 # Check remote Chrome
+cjig launch                    # Launch with default profile
+cjig launch --profile=testing  # Named profile
+cjig status                    # Check if Chrome is running
+cjig status --host=192.168.1.5 # Check remote Chrome
 ```
 
 ### Tab Operations
 
 ```bash
-chrome-debug tabs              # List open tabs
-chrome-debug tab example       # Select tab by URL pattern
-chrome-debug tab 0             # Select tab by index
-chrome-debug open https://...  # Open new tab
+cjig tabs              # List open tabs
+cjig tab example       # Select tab by URL pattern
+cjig tab 0             # Select tab by index
+cjig open https://...  # Open new tab
 ```
 
 ### Script Injection
 
 ```bash
-chrome-debug inject my-script      # Inject by name (from config)
-chrome-debug inject https://...    # Inject by URL
+cjig inject my-script      # Inject by name (from config)
+cjig inject https://...    # Inject by URL
 ```
 
 ### Evaluation
 
 ```bash
-chrome-debug eval "document.title"        # One-shot eval
-chrome-debug eval "window.myApi.status()" # Call injected API
-chrome-debug repl                         # Interactive REPL
+cjig eval "document.title"        # One-shot eval
+cjig eval "window.myApi.status()" # Call injected API
+cjig repl                         # Interactive REPL
 ```
 
 ## REPL Commands
@@ -101,7 +101,7 @@ chrome-debug repl                         # Interactive REPL
 
 ## Configuration
 
-### Global Config (`~/.config/chrome-debug-repl/config.json`)
+### Global Config (`~/.config/cjig/config.json`)
 
 ```json
 {
@@ -116,7 +116,7 @@ chrome-debug repl                         # Interactive REPL
 }
 ```
 
-### Project Config (`.chrome-debug.json`)
+### Project Config (`.cjig.json`)
 
 ```json
 {
@@ -146,28 +146,28 @@ chrome-debug repl                         # Interactive REPL
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `CHROME_DEBUG_PORT` | `9222` | CDP port |
-| `CHROME_DEBUG_PROFILE` | `default` | Profile name |
-| `CHROME_DEBUG_HOST` | `localhost` | Chrome host |
+| `CJIG_PORT` | `9222` | CDP port |
+| `CJIG_PROFILE` | `default` | Profile name |
+| `CJIG_HOST` | `localhost` | Chrome host |
 | `CHROME_PATH` | (auto-detect) | Chrome executable |
 
 ## Shell Setup
 
 ```bash
-chrome-debug env >> ~/.zshrc
+cjig env >> ~/.zshrc
 source ~/.zshrc
 ```
 
 This adds:
-- `cdr` - alias for `chrome-debug repl`
-- `cdl` - alias for `chrome-debug launch`
-- `cdt` - alias for `chrome-debug tabs`
+- `cjr` - alias for `cjig repl`
+- `cjl` - alias for `cjig launch`
+- `cjt` - alias for `cjig tabs`
 
 ## Use as Claude Skill
 
 ```bash
-# Symlink to Claude skills directory
-ln -s $(npm root -g)/chrome-debug-repl ~/.claude/skills/chrome-debug-repl
+cjig install-skill    # Symlinks this package to ~/.claude/skills/chrome-jig
+cjig uninstall-skill  # Removes the symlink
 ```
 
 Then Claude can use it via the SKILL.md instructions.
@@ -175,15 +175,15 @@ Then Claude can use it via the SKILL.md instructions.
 ## Directory Layout (XDG)
 
 ```
-~/.config/chrome-debug-repl/
+~/.config/cjig/
 ├── config.json           # Global config
 └── profiles/             # Named config profiles
 
-~/.local/share/chrome-debug-repl/
+~/.local/share/cjig/
 └── chrome-profiles/      # Chrome user-data dirs
     └── default/
 
-~/.local/state/chrome-debug-repl/
+~/.local/state/cjig/
 └── last-session.json     # Session state
 ```
 

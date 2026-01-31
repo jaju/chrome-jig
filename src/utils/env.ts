@@ -11,7 +11,7 @@ export interface EnvConfig {
   chromePath?: string;
 }
 
-const ENV_PREFIX = 'CHROME_DEBUG_';
+const ENV_PREFIX = 'CJIG_';
 
 export function getEnvConfig(): Partial<EnvConfig> {
   return {

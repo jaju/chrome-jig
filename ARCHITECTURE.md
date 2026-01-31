@@ -1,6 +1,6 @@
-# Chrome Debug REPL - Architecture
+# Chrome Jig - Architecture
 
-Technical architecture documentation for the chrome-debug-repl project.
+Technical architecture documentation for the chrome-jig project.
 
 ## System Overview
 
@@ -114,7 +114,7 @@ Technical architecture documentation for the chrome-debug-repl project.
 ### Schema Definitions
 
 ```typescript
-// Global config: ~/.config/chrome-debug-repl/config.json
+// Global config: ~/.config/chrome-jig/config.json
 interface GlobalConfig {
   defaults?: {
     port?: number;
@@ -127,7 +127,7 @@ interface GlobalConfig {
   };
 }
 
-// Project config: .chrome-debug.json
+// Project config: .cjig.json
 interface ProjectConfig {
   scripts?: {
     baseUrl?: string;
@@ -171,7 +171,7 @@ interface ResolvedConfig {
 findProjectConfig(cwd):
   dir = cwd
   while dir != root:
-    for name in ['.chrome-debug.json', 'chrome-debug.json', '.chrome-debug.config.json']:
+    for name in ['.cjig.json', 'cjig.json', '.cjig.config.json']:
       if exists(dir/name):
         return dir/name
     dir = parent(dir)
@@ -182,7 +182,7 @@ findProjectConfig(cwd):
 
 ```
 loadConfig(cliOptions):
-  global  = loadJsonFile(~/.config/chrome-debug-repl/config.json)
+  global  = loadJsonFile(~/.config/chrome-jig/config.json)
   project = findProjectConfig() → loadJsonFile()
   env     = resolveEnvConfig()
 
@@ -285,16 +285,16 @@ interface CommandContext {
 ## XDG Directory Layout
 
 ```
-~/.config/chrome-debug-repl/          # XDG_CONFIG_HOME/chrome-debug-repl
+~/.config/chrome-jig/          # XDG_CONFIG_HOME/chrome-jig
 ├── config.json                       # Global configuration
 └── profiles/                         # Named config profiles (future)
 
-~/.local/share/chrome-debug-repl/     # XDG_DATA_HOME/chrome-debug-repl
+~/.local/share/chrome-jig/     # XDG_DATA_HOME/chrome-jig
 └── chrome-profiles/                  # Chrome user-data directories
     ├── default/                      # Default profile
     └── testing/                      # Named profiles
 
-~/.local/state/chrome-debug-repl/     # XDG_STATE_HOME/chrome-debug-repl
+~/.local/state/chrome-jig/     # XDG_STATE_HOME/chrome-jig
 └── last-session.json                 # Session state (PID, port, profile)
 ```
 
@@ -314,7 +314,7 @@ interface CommandContext {
 ```
 ~/.claude/
 └── skills/
-    └── chrome-debug-repl → /path/to/package  (symlink)
+    └── chrome-jig → /path/to/package  (symlink)
         ├── SKILL.md      # Instructions Claude reads
         ├── README.md     # Additional context
         └── package.json  # Package metadata
@@ -325,7 +325,7 @@ interface CommandContext {
 ```
 installSkill():
   skillsDir = ~/.claude/skills
-  skillPath = skillsDir/chrome-debug-repl
+  skillPath = skillsDir/chrome-jig
   packageRoot = path to package (from import.meta.url)
 
   if !exists(skillsDir):
@@ -352,7 +352,7 @@ installSkill():
 ### Launch Flow
 
 ```
-CLI: chrome-debug launch --profile=testing
+CLI: cjig launch --profile=testing
            │
            ▼
     ┌──────────────┐
@@ -393,7 +393,7 @@ CLI: chrome-debug launch --profile=testing
 ### Eval Flow
 
 ```
-CLI: chrome-debug eval "document.title"
+CLI: cjig eval "document.title"
            │
            ▼
     ┌──────────────┐
@@ -430,7 +430,7 @@ CLI: chrome-debug eval "document.title"
 ### Inject Flow
 
 ```
-CLI: chrome-debug inject bs
+CLI: cjig inject bs
            │
            ▼
     ┌──────────────┐
@@ -598,24 +598,24 @@ Scripts are injected via CDP `Runtime.evaluate`. Understanding why requires know
 
 ### Idempotent Launch
 
-`chrome-debug launch` checks whether Chrome is already listening on the configured port. If so, it returns success and reuses the existing instance rather than failing with a "port in use" error. This makes `launch` safe to call unconditionally — scripts and workflows don't need to check `status` first.
+`cjig launch` checks whether Chrome is already listening on the configured port. If so, it returns success and reuses the existing instance rather than failing with a "port in use" error. This makes `launch` safe to call unconditionally — scripts and workflows don't need to check `status` first.
 
 ### Dogfooding Setup
 
-The `examples/` directory and `.chrome-debug.json` at the project root provide a self-contained loop for exercising the full workflow:
+The `examples/` directory and `.cjig.json` at the project root provide a self-contained loop for exercising the full workflow:
 
 ```bash
 # Terminal 1: serve example scripts over HTTP
 npm run serve:examples        # npx serve examples -p 3333 -C
 
 # Terminal 2: the development loop
-chrome-debug launch
-chrome-debug inject fancy-demo
-chrome-debug eval "FX.burst(50)"
+cjig launch
+cjig inject fancy-demo
+cjig eval "FX.burst(50)"
 ```
 
 The `fancy-demo` harness is a particle-system overlay chosen because visual changes (colors, sizes, speeds) are immediately obvious — ideal for demonstrating the re-inject feedback loop. The script is idempotent: on re-injection it tears down the previous instance before rebuilding.
 
 ### Build vs Source
 
-The global `chrome-debug` command (installed via `npm link`) loads `dist/cli.js`. You must run `npm run build` after source changes for the global command to pick them up. Use `npm run dev -- <cmd>` during development to run directly from TypeScript source via `tsx`.
+The global `cjig` command (installed via `npm link`) loads `dist/cli.js`. You must run `npm run build` after source changes for the global command to pick them up. Use `npm run dev -- <cmd>` during development to run directly from TypeScript source via `tsx`.

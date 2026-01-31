@@ -1,12 +1,12 @@
 {
-  "name": "chrome-debug-repl",
+  "name": "chrome-jig",
   "version": "0.1.0",
   "description": "Chrome debugging REPL with CDP, script injection, and Claude skill support",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "chrome-debug": "./bin/chrome-debug.js"
+    "cjig": "./bin/cjig.js"
   },
   "scripts": {
     "build": "tsc",
@@ -27,7 +27,7 @@
   "license": "MIT",
   "dependencies": {
     "chokidar": "^5.0.0",
-    "playwright-core": "^1.58.0"
+    "playwright-core": "^1.58.1"
   },
   "devDependencies": {
     "@types/node": "^25.1.0",

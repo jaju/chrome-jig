@@ -15,9 +15,9 @@ import {
 import { resolveConfig as resolveEnvConfig, EnvConfig } from '../utils/env.js';
 
 const PROJECT_CONFIG_NAMES = [
-  '.chrome-debug.json',
-  'chrome-debug.json',
-  '.chrome-debug.config.json',
+  '.cjig.json',
+  'cjig.json',
+  '.cjig.config.json',
 ];
 
 export function findProjectConfig(startDir: string = process.cwd()): string | null {

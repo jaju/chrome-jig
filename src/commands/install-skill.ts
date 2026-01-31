@@ -6,7 +6,7 @@ import { existsSync, mkdirSync, symlinkSync, unlinkSync, readlinkSync } from 'no
 import { dirname, join } from 'node:path';
 import { homedir } from 'node:os';
 
-const SKILL_NAME = 'chrome-debug-repl';
+const SKILL_NAME = 'chrome-jig';
 
 function getSkillsDir(): string {
   return join(homedir(), '.claude', 'skills');

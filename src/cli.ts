@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Chrome Debug REPL - CLI Entry Point
+ * Chrome Jig - CLI Entry Point
  */
 
 import { parseArgs } from 'node:util';
@@ -17,10 +17,10 @@ import { installSkill, uninstallSkill } from './commands/install-skill.js';
 import { interactiveInit, generateConfig, writeConfig } from './commands/init.js';
 
 const USAGE = `
-Chrome Debug REPL - Browser debugging from the command line
+Chrome Jig - Browser debugging from the command line
 
 Usage:
-  chrome-debug <command> [options]
+  cjig <command> [options]
 
 Commands:
   launch              Launch Chrome with debugging enabled
@@ -45,10 +45,10 @@ Options:
   --help, -h          Show help
 
 Examples:
-  chrome-debug launch
-  chrome-debug tabs
-  chrome-debug eval "document.title"
-  chrome-debug repl --port 9223
+  cjig launch
+  cjig tabs
+  cjig eval "document.title"
+  cjig repl --port 9223
 `;
 
 async function main() {
@@ -139,7 +139,7 @@ async function main() {
 
       case 'tab': {
         if (args.length === 0) {
-          console.error('Usage: chrome-debug tab <pattern|index>');
+          console.error('Usage: cjig tab <pattern|index>');
           process.exit(1);
         }
 
@@ -162,7 +162,7 @@ async function main() {
 
       case 'open': {
         if (args.length === 0) {
-          console.error('Usage: chrome-debug open <url>');
+          console.error('Usage: cjig open <url>');
           process.exit(1);
         }
 
@@ -179,7 +179,7 @@ async function main() {
 
       case 'inject': {
         if (args.length === 0) {
-          console.error('Usage: chrome-debug inject <name|url>');
+          console.error('Usage: cjig inject <name|url>');
           console.log('\nConfigured scripts:');
           for (const [name, entry] of Object.entries(config.scripts.registry)) {
             const alias = entry.alias ? ` (${entry.alias})` : '';
@@ -212,7 +212,7 @@ async function main() {
 
       case 'eval': {
         if (args.length === 0) {
-          console.error('Usage: chrome-debug eval <expression>');
+          console.error('Usage: cjig eval <expression>');
           process.exit(1);
         }
 
@@ -239,7 +239,7 @@ async function main() {
         const running = await connection.isRunning();
         if (!running) {
           console.error(`Chrome not running on ${config.host}:${config.port}`);
-          console.error('Run: chrome-debug launch');
+          console.error('Run: cjig launch');
           process.exit(1);
         }
 
@@ -274,17 +274,17 @@ async function main() {
       }
 
       case 'env': {
-        console.log('# Chrome Debug REPL - Shell Configuration');
+        console.log('# Chrome Jig - Shell Configuration');
         console.log('# Add to ~/.zshrc or ~/.bashrc:\n');
-        console.log(`export CHROME_DEBUG_PORT=${config.port}`);
-        console.log(`export CHROME_DEBUG_PROFILE=${config.profile}`);
+        console.log(`export CJIG_PORT=${config.port}`);
+        console.log(`export CJIG_PROFILE=${config.profile}`);
         if (config.host !== 'localhost') {
-          console.log(`export CHROME_DEBUG_HOST=${config.host}`);
+          console.log(`export CJIG_HOST=${config.host}`);
         }
         console.log('\n# Optional aliases:');
-        console.log("alias cdr='chrome-debug repl'");
-        console.log("alias cdl='chrome-debug launch'");
-        console.log("alias cdt='chrome-debug tabs'");
+        console.log("alias cjr='cjig repl'");
+        console.log("alias cjl='cjig launch'");
+        console.log("alias cjt='cjig tabs'");
         break;
       }
 
@@ -345,7 +345,7 @@ async function main() {
 
       default:
         console.error(`Unknown command: ${command}`);
-        console.log('Run: chrome-debug help');
+        console.log('Run: cjig help');
         process.exit(1);
     }
   } catch (err) {

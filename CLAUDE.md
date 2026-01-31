@@ -1,13 +1,12 @@
-# Chrome Debug REPL - Agent Context
+# Chrome Jig - Agent Context
 
 A CLI tool for Chrome debugging with CDP (Chrome DevTools Protocol), script injection, file watching, and Claude skill support.
 
 ## Project Identity
 
-- **Name**: chrome-debug-repl
+- **Name**: chrome-jig
 - **Purpose**: Enable browser debugging, script injection, and live JavaScript evaluation from the command line
 - **Origin**: Extracted from KlipCeeper to serve as a standalone development tool for testing harnesses in browser contexts
-- **Location**: `~/github/chrome-debug-repl`
 
 ## Quick Start
 
@@ -16,10 +15,10 @@ A CLI tool for Chrome debugging with CDP (Chrome DevTools Protocol), script inje
 npm run build
 
 # Test locally (after npm link)
-chrome-debug launch           # Start Chrome with debugging
-chrome-debug tabs             # List open tabs
-chrome-debug eval "document.title"  # One-shot JavaScript evaluation
-chrome-debug repl             # Interactive REPL
+cjig launch           # Start Chrome with debugging
+cjig tabs             # List open tabs
+cjig eval "document.title"  # One-shot JavaScript evaluation
+cjig repl             # Interactive REPL
 
 # Development
 npm run dev -- <command>      # Run without building (via tsx)
@@ -29,9 +28,9 @@ npm run typecheck             # TypeScript validation
 ## Project Structure
 
 ```
-chrome-debug-repl/
+chrome-jig/
 ├── bin/
-│   └── chrome-debug.js       # CLI entry shim (loads dist/cli.js)
+│   └── cjig.js               # CLI entry shim (loads dist/cli.js)
 ├── src/
 │   ├── cli.ts                # Command-line argument parsing & routing
 │   ├── index.ts              # Library exports for programmatic use
@@ -80,17 +79,17 @@ Follows XDG Base Directory Specification for clean file organization:
 
 | Purpose | Path | Contents |
 |---------|------|----------|
-| Config | `~/.config/chrome-debug-repl/` | `config.json`, named profiles |
-| Data | `~/.local/share/chrome-debug-repl/` | Chrome user-data directories |
-| State | `~/.local/state/chrome-debug-repl/` | Session state (PID, port, profile) |
+| Config | `~/.config/cjig/` | `config.json`, named profiles |
+| Data | `~/.local/share/cjig/` | Chrome user-data directories |
+| State | `~/.local/state/cjig/` | Session state (PID, port, profile) |
 
 ### Configuration Hierarchy
 
 Priority (highest to lowest):
 1. CLI flags (`--port`, `--host`, `--profile`)
-2. Environment variables (`CHROME_DEBUG_PORT`, etc.)
-3. Project config (`.chrome-debug.json` in cwd or parents)
-4. Global config (`~/.config/chrome-debug-repl/config.json`)
+2. Environment variables (`CJIG_PORT`, etc.)
+3. Project config (`.cjig.json` in cwd or parents)
+4. Global config (`~/.config/cjig/config.json`)
 5. Built-in defaults
 
 ### Script Registry
@@ -113,7 +112,7 @@ Project config defines injectable scripts:
 }
 ```
 
-Inject by name: `chrome-debug inject bs`
+Inject by name: `cjig inject bs`
 
 ### REPL Dot Commands
 
@@ -138,8 +137,8 @@ The REPL uses dot-prefix for commands (`.tabs`, `.inject`, `.watch`) and evaluat
 
 ```bash
 npm run build                 # Compile TypeScript
-chrome-debug status           # Test the command
-chrome-debug repl             # Interactive testing
+cjig status                   # Test the command
+cjig repl                     # Interactive testing
 ```
 
 ## Key Design Decisions
@@ -211,8 +210,8 @@ When used with KlipCeeper, project config typically points to harness URLs:
 ### Claude Skill Installation
 
 ```bash
-chrome-debug install-skill    # Create symlink to ~/.claude/skills/
-chrome-debug uninstall-skill  # Remove symlink
+cjig install-skill    # Create symlink to ~/.claude/skills/
+cjig uninstall-skill  # Remove symlink
 ```
 
 The skill provides Claude with commands for browser debugging. See `SKILL.md` for usage instructions Claude sees.
@@ -221,26 +220,26 @@ The skill provides Claude with commands for browser debugging. See `SKILL.md` fo
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `CHROME_DEBUG_PORT` | `9222` | CDP port |
-| `CHROME_DEBUG_HOST` | `localhost` | Chrome host |
-| `CHROME_DEBUG_PROFILE` | `default` | Profile name |
+| `CJIG_PORT` | `9222` | CDP port |
+| `CJIG_HOST` | `localhost` | Chrome host |
+| `CJIG_PROFILE` | `default` | Profile name |
 | `CHROME_PATH` | (auto-detect) | Chrome executable |
-| `CHROME_SCRIPTS_BASE` | (from config) | Script base URL |
+| `CJIG_SCRIPTS_BASE` | (from config) | Script base URL |
 
 ## Verification Commands
 
 ```bash
 # Check Chrome status
-chrome-debug status
+cjig status
 
 # List tabs
-chrome-debug tabs
+cjig tabs
 
 # Evaluate JavaScript
-chrome-debug eval "document.title"
+cjig eval "document.title"
 
 # Check skill symlink
-ls -la ~/.claude/skills/chrome-debug-repl
+ls -la ~/.claude/skills/chrome-jig
 ```
 # Beads Workflow Context
 

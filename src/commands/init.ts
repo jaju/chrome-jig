@@ -89,7 +89,7 @@ export function writeConfig(
   config: ProjectConfig,
   dir: string = process.cwd()
 ): InitResult {
-  const configPath = join(dir, '.chrome-debug.json');
+  const configPath = join(dir, '.cjig.json');
 
   if (existsSync(configPath)) {
     return {
@@ -126,11 +126,11 @@ export async function interactiveInit(cwd: string = process.cwd()): Promise<Init
   const question = (prompt: string): Promise<string> =>
     new Promise((resolve) => rl.question(prompt, resolve));
 
-  console.log('\nChrome Debug REPL - Project Setup\n');
+  console.log('\nChrome Jig - Project Setup\n');
 
   try {
     // Check for existing config
-    const existingPath = join(cwd, '.chrome-debug.json');
+    const existingPath = join(cwd, '.cjig.json');
     if (existsSync(existingPath)) {
       console.log(`Config already exists: ${existingPath}`);
       rl.close();
@@ -192,8 +192,8 @@ export async function interactiveInit(cwd: string = process.cwd()): Promise<Init
     if (result.success) {
       console.log(`\n✓ Generated: ${result.configPath}`);
       console.log('\nShell environment (add to ~/.zshrc):');
-      console.log(`  export CHROME_DEBUG_PORT=${port}`);
-      console.log(`  export CHROME_DEBUG_PROFILE=${profile}`);
+      console.log(`  export CJIG_PORT=${port}`);
+      console.log(`  export CJIG_PROFILE=${profile}`);
     }
 
     rl.close();

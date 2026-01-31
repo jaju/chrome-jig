@@ -1,5 +1,5 @@
-// Particle Overlay Demo — dogfooding harness for chrome-debug-repl
-// Inject onto any page: chrome-debug inject fancy-demo
+// Particle Overlay Demo — dogfooding harness for chrome-jig
+// Inject onto any page: cjig inject fancy-demo
 // API: FX.burst(50), FX.clear(), FX.toggle(), FX.stop(), FX.start(), FX.remove()
 ;(function () {
   'use strict';
