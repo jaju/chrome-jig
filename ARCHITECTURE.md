@@ -606,7 +606,7 @@ All evaluation methods on `ChromeConnection` — `evaluate()`, `injectScript()`,
 
 **MCP equivalence**: Chrome MCP's `evaluate_script` tool uses CDP `Runtime.evaluate` in the main world — the same mechanism we use. The difference between this CLI and Chrome MCP is operational (bundled workflows vs individual primitives), not in protocol capabilities.
 
-**In-browser fetch**: `injectScript(url)` fetches the script URL inside the browser via a CDP-evaluated `fetch()` call, then executes the content with indirect eval `(0, eval)(t)` to ensure globals land in the page's main world scope rather than the callback's closure scope.
+**Server-side fetch**: `injectScript(url)` fetches the script URL server-side using Node's `fetch`, then passes the content to `injectScriptContent()` for execution via CDP `Runtime.evaluate`. This bypasses CORS entirely — the HTTP request runs in the CLI process, not in the browser's network stack. Previously, `fetch()` ran inside a CDP-evaluated expression, which was subject to the browser's CORS policy and failed when the active tab's origin differed from the script server's origin.
 
 ### Async Readline Drain
 
