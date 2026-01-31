@@ -15,6 +15,7 @@ export function compile(source: string): CompileResult {
     const js = compileString(source, {
       context: 'expr',
       'elide-imports': true,
+      'elide-exports': true,
     });
     return { success: true, js };
   } catch (err) {

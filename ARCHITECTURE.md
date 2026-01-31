@@ -618,6 +618,16 @@ For an interactive REPL this is harmless — the user controls the pace. But whe
 
 **General principle**: Any time an `EventEmitter` listener is `async`, downstream events can fire before the async work finishes. If cleanup depends on completion, the listener must signal completion through a side channel (counter + drain promise), not through the event system itself.
 
+### CDP Exception Message Priority
+
+CDP's `Runtime.evaluate` returns `exceptionDetails` on errors. The `text` field is typically just the prefix `"Uncaught"` — a label, not the actual error. The meaningful message lives in `exception.description` (e.g., `"SyntaxError: Unexpected token export"`). When extracting error messages, always prefer `exceptionDetails.exception.description` over `exceptionDetails.text`.
+
+### Squint Export Elision
+
+Squint-cljs compiles `defn` and `def` forms into `var` declarations followed by `export { name }`. CDP `Runtime.evaluate` runs code as a script, not an ES module, so `export` syntax causes `SyntaxError: Unexpected token export`. The fix is the `'elide-exports': true` compiler option, which suppresses the `export` statement while preserving the `var` declaration — the variable lands in the page's global scope, which is the desired behavior for a REPL.
+
+Both `'elide-imports': true` and `'elide-exports': true` are required for squint output to be evaluable via CDP. The `context: 'expr'` option ensures simple expressions like `(+ 1 2)` produce returnable values rather than statements.
+
 ### ClojureScript Runtime Injection
 
 `cljs-eval` compiles ClojureScript via squint-cljs, which emits references to `squint_core.fn(...)` for core functions (`map`, `filter`, `reduce`, `range`, `atom` — 238 total). The runtime must be present in the browser before the compiled code runs.

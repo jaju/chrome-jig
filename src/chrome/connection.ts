@@ -183,8 +183,8 @@ export class ChromeConnection {
     });
 
     if (result.exceptionDetails) {
-      const text = result.exceptionDetails.text
-        ?? result.exceptionDetails.exception?.description
+      const text = result.exceptionDetails.exception?.description
+        ?? result.exceptionDetails.text
         ?? 'Evaluation failed';
       throw new Error(text);
     }
