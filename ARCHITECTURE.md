@@ -35,18 +35,18 @@ Technical architecture documentation for the chrome-jig project.
 
 ## Module Breakdown
 
-| Module | Path | Responsibility |
-|--------|------|----------------|
-| CLI | `src/cli.ts` | Argument parsing via `node:util parseArgs`, command dispatch |
-| Connection | `src/chrome/connection.ts` | CDP wrapper using `playwright-core` |
-| Launcher | `src/chrome/launcher.ts` | Chrome process spawning, profile management |
-| Config Schema | `src/config/schema.ts` | TypeScript interfaces for all config types |
-| Config Loader | `src/config/loader.ts` | Discovery, loading, merging, script resolution |
-| XDG Paths | `src/config/xdg.ts` | XDG Base Directory path helpers |
-| REPL | `src/repl/repl.ts` | Interactive shell engine, file watching |
-| REPL Commands | `src/repl/commands.ts` | Dot-command implementations |
-| Completer | `src/repl/completer.ts` | Tab completion for REPL |
-| Commands | `src/commands/*.ts` | Individual CLI command implementations |
+| Module        | Path                       | Responsibility                                               |
+| ------------- | -------------------------- | ------------------------------------------------------------ |
+| CLI           | `src/cli.ts`               | Argument parsing via `node:util parseArgs`, command dispatch |
+| Connection    | `src/chrome/connection.ts` | CDP wrapper using `playwright-core`                          |
+| Launcher      | `src/chrome/launcher.ts`   | Chrome process spawning, profile management                  |
+| Config Schema | `src/config/schema.ts`     | TypeScript interfaces for all config types                   |
+| Config Loader | `src/config/loader.ts`     | Discovery, loading, merging, script resolution               |
+| XDG Paths     | `src/config/xdg.ts`        | XDG Base Directory path helpers                              |
+| REPL          | `src/repl/repl.ts`         | Interactive shell engine, file watching                      |
+| REPL Commands | `src/repl/commands.ts`     | Dot-command implementations                                  |
+| Completer     | `src/repl/completer.ts`    | Tab completion for REPL                                      |
+| Commands      | `src/commands/*.ts`        | Individual CLI command implementations                       |
 
 ## ChromeConnection Class
 
@@ -97,17 +97,17 @@ Technical architecture documentation for the chrome-jig project.
 
 ### Key Methods
 
-| Method | Description |
-|--------|-------------|
-| `isRunning()` | Ping `/json/version` endpoint |
-| `connect()` | Establish CDP connection via Playwright |
-| `disconnect()` | Detach session, close connection (not browser) |
-| `getPages()` | List all pages in context |
-| `selectPage(pattern)` | Select page by URL substring match |
-| `selectPageByIndex(n)` | Select page by numeric index |
-| `evaluate<T>(expr)` | Run JavaScript, return result |
-| `injectScript(url)` | Fetch + eval script in browser via CDP main world |
-| `getCDPSession()` | Get raw CDP session for advanced ops |
+| Method                 | Description                                       |
+| ---------------------- | ------------------------------------------------- |
+| `isRunning()`          | Ping `/json/version` endpoint                     |
+| `connect()`            | Establish CDP connection via Playwright           |
+| `disconnect()`         | Detach session, close connection (not browser)    |
+| `getPages()`           | List all pages in context                         |
+| `selectPage(pattern)`  | Select page by URL substring match                |
+| `selectPageByIndex(n)` | Select page by numeric index                      |
+| `evaluate<T>(expr)`    | Run JavaScript, return result                     |
+| `injectScript(url)`    | Fetch + eval script in browser via CDP main world |
+| `getCDPSession()`      | Get raw CDP session for advanced ops              |
 
 ## Configuration System
 
@@ -241,13 +241,13 @@ handleLine(line):
 
 ```typescript
 interface CommandContext {
-  connection: ChromeConnection;    // CDP connection
-  config: ResolvedConfig;          // Current configuration
-  print: (msg: string) => void;    // Output function
-  setWatching: (on: boolean) => void;  // Toggle file watcher
-  isWatching: () => boolean;       // Query watcher state
+  connection: ChromeConnection; // CDP connection
+  config: ResolvedConfig; // Current configuration
+  print: (msg: string) => void; // Output function
+  setWatching: (on: boolean) => void; // Toggle file watcher
+  isWatching: () => boolean; // Query watcher state
   runPreBuild: () => Promise<void>; // Execute preBuild hook
-  exit: () => void;                // Terminate REPL
+  exit: () => void; // Terminate REPL
 }
 ```
 
@@ -300,12 +300,12 @@ interface CommandContext {
 
 ### Purpose of Each Directory
 
-| Directory | XDG Type | Contents | Persistence |
-|-----------|----------|----------|-------------|
-| config | CONFIG_HOME | User settings, defaults | Long-term |
-| data | DATA_HOME | Chrome profiles, browsing data | Long-term |
-| state | STATE_HOME | Session info, last-used values | Ephemeral |
-| cache | CACHE_HOME | (unused) | Disposable |
+| Directory | XDG Type    | Contents                       | Persistence |
+| --------- | ----------- | ------------------------------ | ----------- |
+| config    | CONFIG_HOME | User settings, defaults        | Long-term   |
+| data      | DATA_HOME   | Chrome profiles, browsing data | Long-term   |
+| state     | STATE_HOME  | Session info, last-used values | Ephemeral   |
+| cache     | CACHE_HOME  | (unused)                       | Disposable  |
 
 ## Skill Installation Mechanism
 
@@ -494,20 +494,24 @@ REPL: .watch on
 ### Adding CLI Commands
 
 1. Create `src/commands/your-command.ts`:
+
    ```typescript
-   import { ResolvedConfig } from '../config/schema.js';
+   import { ResolvedConfig } from "../config/schema.js";
 
    export interface YourResult {
      success: boolean;
      message: string;
    }
 
-   export async function yourCommand(config: ResolvedConfig): Promise<YourResult> {
+   export async function yourCommand(
+     config: ResolvedConfig,
+   ): Promise<YourResult> {
      // Implementation
    }
    ```
 
 2. Add to CLI routing in `src/cli.ts`:
+
    ```typescript
    import { yourCommand } from './commands/your-command.js';
 
@@ -548,10 +552,10 @@ For integration with external registries (like KlipCeeper harness-registry):
 
 ## Dependencies
 
-| Package | Version | Purpose |
-|---------|---------|---------|
+| Package           | Version | Purpose                              |
+| ----------------- | ------- | ------------------------------------ |
 | `playwright-core` | ^1.58.0 | CDP client without browser downloads |
-| `chokidar` | ^5.0.0 | File watching with debounce |
+| `chokidar`        | ^5.0.0  | File watching with debounce          |
 
 ### Why playwright-core
 
@@ -572,9 +576,9 @@ Default flags for debugging sessions:
 
 ```typescript
 const DEFAULT_CHROME_FLAGS = [
-  '--disable-background-timer-throttling',
-  '--disable-backgrounding-occluded-windows',
-  '--disable-renderer-backgrounding',
+  "--disable-background-timer-throttling",
+  "--disable-backgrounding-occluded-windows",
+  "--disable-renderer-backgrounding",
 ];
 ```
 
@@ -618,4 +622,4 @@ The `fancy-demo` harness is a particle-system overlay chosen because visual chan
 
 ### Build vs Source
 
-The global `cjig` command (installed via `pnpm link --global`) loads `dist/cli.js`. You must run `pnpm build` after source changes for the global command to pick them up. Use `pnpm dev -- <cmd>` during development to run directly from TypeScript source via `tsx`.
+The global `cjig` command (installed via `npm link`) loads `dist/cli.js`. You must run `pnpm build` after source changes for the global command to pick them up. Use `pnpm dev -- <cmd>` during development to run directly from TypeScript source via `tsx`.

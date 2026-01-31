@@ -66,6 +66,7 @@ chrome-jig/
 ### CDP Connection via Playwright
 
 Uses `playwright-core` (not the full Playwright) as a high-level CDP client. This provides:
+
 - Stable WebSocket connection management
 - Page/context abstractions
 - Script injection via `addScriptTag`
@@ -77,15 +78,16 @@ The `ChromeConnection` class (`src/chrome/connection.ts`) wraps Playwright's `ch
 
 Follows XDG Base Directory Specification for clean file organization:
 
-| Purpose | Path | Contents |
-|---------|------|----------|
-| Config | `~/.config/cjig/` | `config.json`, named profiles |
-| Data | `~/.local/share/cjig/` | Chrome user-data directories |
-| State | `~/.local/state/cjig/` | Session state (PID, port, profile) |
+| Purpose | Path                   | Contents                           |
+| ------- | ---------------------- | ---------------------------------- |
+| Config  | `~/.config/cjig/`      | `config.json`, named profiles      |
+| Data    | `~/.local/share/cjig/` | Chrome user-data directories       |
+| State   | `~/.local/state/cjig/` | Session state (PID, port, profile) |
 
 ### Configuration Hierarchy
 
 Priority (highest to lowest):
+
 1. CLI flags (`--port`, `--host`, `--profile`)
 2. Environment variables (`CJIG_PORT`, etc.)
 3. Project config (`.cjig.json` in cwd or parents)
@@ -159,6 +161,7 @@ cjig repl                     # Interactive testing
 ### Why Symlink for Skill
 
 Claude skills are discovered from `~/.claude/skills/`. A symlink allows:
+
 - Development iteration without reinstalling
 - Multiple Claude instances share the same skill
 - `SKILL.md` and `README.md` are always current
@@ -166,6 +169,7 @@ Claude skills are discovered from `~/.claude/skills/`. A symlink allows:
 ### Script Registry Pattern
 
 Named scripts allow:
+
 - Short commands (`inject bs` vs full URL)
 - Metadata (windowApi, quickStart hints)
 - File watching knows what to re-inject
@@ -174,8 +178,8 @@ Named scripts allow:
 
 ### Package Manager
 
-- This project uses **pnpm**. Do not use npm.
-- Use `pnpm` in place of `npm run`, `npm install`, `npm link`, etc.
+- This project uses **pnpm** for dependency management and scripts. Do not use `npm install` or `npm run`.
+- Exception: use `npm link` for global CLI registration (pnpm's global bin doesn't respect nvm).
 
 ### TypeScript
 
@@ -223,13 +227,13 @@ The skill provides Claude with commands for browser debugging. See `SKILL.md` fo
 
 ## Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `CJIG_PORT` | `9222` | CDP port |
-| `CJIG_HOST` | `localhost` | Chrome host |
-| `CJIG_PROFILE` | `default` | Profile name |
-| `CHROME_PATH` | (auto-detect) | Chrome executable |
-| `CJIG_SCRIPTS_BASE` | (from config) | Script base URL |
+| Variable            | Default       | Description       |
+| ------------------- | ------------- | ----------------- |
+| `CJIG_PORT`         | `9222`        | CDP port          |
+| `CJIG_HOST`         | `localhost`   | Chrome host       |
+| `CJIG_PROFILE`      | `default`     | Profile name      |
+| `CHROME_PATH`       | (auto-detect) | Chrome executable |
+| `CJIG_SCRIPTS_BASE` | (from config) | Script base URL   |
 
 ## Verification Commands
 
@@ -246,6 +250,7 @@ cjig eval "document.title"
 # Check skill symlink
 ls -la ~/.claude/skills/chrome-jig
 ```
+
 # Beads Workflow Context
 
 > **Context Recovery**: Run `bd prime` after compaction, clear, or new session
@@ -262,6 +267,7 @@ ls -la ~/.claude/skills/chrome-jig
 **Note:** No git remote configured. Issues are saved locally only.
 
 ## Core Rules
+
 - Track strategic work in beads (multi-session, dependencies, discovered work)
 - Use `bd create` for issues, TodoWrite for simple single-session execution
 - When in doubt, prefer bd—persistence you don't need beats lost context
@@ -271,12 +277,14 @@ ls -la ~/.claude/skills/chrome-jig
 ## Essential Commands
 
 ### Finding Work
+
 - `bd ready` - Show issues ready to work (no blockers)
 - `bd list --status=open` - All open issues
 - `bd list --status=in_progress` - Your active work
 - `bd show <id>` - Detailed issue view with dependencies
 
 ### Creating & Updating
+
 - `bd create --title="..." --type=task|bug|feature --priority=2` - New issue
   - Priority: 0-4 or P0-P4 (0=critical, 2=medium, 4=backlog). NOT "high"/"medium"/"low"
 - `bd update <id> --status=in_progress` - Claim work
@@ -289,20 +297,24 @@ ls -la ~/.claude/skills/chrome-jig
 - **WARNING**: Do NOT use `bd edit` - it opens $EDITOR (vim/nano) which blocks agents
 
 ### Dependencies & Blocking
+
 - `bd dep add <issue> <depends-on>` - Add dependency (issue depends on depends-on)
 - `bd blocked` - Show all blocked issues
 - `bd show <id>` - See what's blocking/blocked by this issue
 
 ### Sync & Collaboration
+
 - `bd sync --flush-only` - Export to JSONL
 
 ### Project Health
+
 - `bd stats` - Project statistics (open/closed/blocked counts)
 - `bd doctor` - Check for issues (sync problems, missing hooks)
 
 ## Common Workflows
 
 **Starting work:**
+
 ```bash
 bd ready           # Find available work
 bd show <id>       # Review issue details
@@ -310,12 +322,14 @@ bd update <id> --status=in_progress  # Claim it
 ```
 
 **Completing work:**
+
 ```bash
 bd close <id1> <id2> ...    # Close all completed issues at once
 bd sync --flush-only        # Export to JSONL
 ```
 
 **Creating dependent work:**
+
 ```bash
 # Run bd create commands in parallel (use subagents for many items)
 bd create --title="Implement feature X" --type=feature

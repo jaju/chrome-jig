@@ -22,7 +22,7 @@ pnpm add -g chrome-jig
 git clone https://github.com/yourname/chrome-jig.git
 cd chrome-jig
 pnpm install
-pnpm link --global
+npm link          # uses nvm's bin directory
 ```
 
 ## Quick Start
@@ -144,12 +144,12 @@ cjig repl                         # Interactive REPL
 
 ## Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `CJIG_PORT` | `9222` | CDP port |
-| `CJIG_PROFILE` | `default` | Profile name |
-| `CJIG_HOST` | `localhost` | Chrome host |
-| `CHROME_PATH` | (auto-detect) | Chrome executable |
+| Variable       | Default       | Description       |
+| -------------- | ------------- | ----------------- |
+| `CJIG_PORT`    | `9222`        | CDP port          |
+| `CJIG_PROFILE` | `default`     | Profile name      |
+| `CJIG_HOST`    | `localhost`   | Chrome host       |
+| `CHROME_PATH`  | (auto-detect) | Chrome executable |
 
 ## Shell Setup
 
@@ -159,6 +159,7 @@ source ~/.zshrc
 ```
 
 This adds:
+
 - `cjr` - alias for `cjig repl`
 - `cjl` - alias for `cjig launch`
 - `cjt` - alias for `cjig tabs`
