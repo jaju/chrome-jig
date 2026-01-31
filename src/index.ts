@@ -43,4 +43,5 @@ export type { ServeOptions } from './commands/serve.js';
 
 // Init & Skill
 export { installSkill, uninstallSkill } from './commands/install-skill.js';
+export { installNvim, uninstallNvim } from './commands/install-nvim.js';
 export { generateConfig, writeConfig, interactiveInit } from './commands/init.js';

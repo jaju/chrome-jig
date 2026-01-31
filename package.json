@@ -45,6 +45,7 @@
   "files": [
     "dist",
     "bin",
+    "editor",
     "SKILL.md",
     "README.md"
   ]

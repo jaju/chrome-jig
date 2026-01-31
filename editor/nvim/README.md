@@ -7,30 +7,47 @@ Select code, eval in browser, see result in a floating window.
 ## Requirements
 
 - Neovim >= 0.9
-- `cjig` installed and on `$PATH` (`pnpm link --global` from chrome-debug-repl)
+- `cjig` installed and on `$PATH`
 - Chrome running with debugging enabled (`cjig launch`)
 
-## Setup
+## Installation
 
-### Development (from repo checkout)
+Run once (and again after upgrading cjig or switching Node versions):
 
-Add to your Neovim config (init.lua):
-
-```lua
-vim.opt.runtimepath:prepend("/path/to/chrome-debug-repl/editor/nvim")
-require("cjig").setup()
+```bash
+cjig install-nvim
 ```
+
+This creates a stable symlink at `$XDG_DATA_HOME/cjig/editors/nvim` (default: `~/.local/share/cjig/editors/nvim`) pointing to the plugin inside the installed package. The command prints setup snippets — add the appropriate one to your Neovim config.
 
 ### lazy.nvim
 
+Create `lua/plugins/cjig.lua`:
+
 ```lua
-{
-  dir = "/path/to/chrome-debug-repl/editor/nvim",
-  config = function()
-    require("cjig").setup()
-  end,
-}
+return { dir = "~/.local/share/cjig/editors/nvim" }
 ```
+
+### packer
+
+```lua
+use { "~/.local/share/cjig/editors/nvim" }
+```
+
+### Manual (init.lua)
+
+```lua
+vim.opt.runtimepath:prepend(vim.fn.expand("~/.local/share/cjig/editors/nvim"))
+require("cjig").setup()
+```
+
+### Uninstall
+
+```bash
+cjig uninstall-nvim
+```
+
+Then remove the corresponding line from your Neovim config.
 
 ## Commands
 
@@ -88,20 +105,18 @@ Explicit `:CjigConnect` is optional.
 - `call_expression`
 - `assignment_expression`
 
-## Dogfooding Walkthrough
+## Walkthrough
 
 ```bash
-# Terminal 1: launch Chrome
+# Terminal: launch Chrome and serve examples
 cjig launch
-
-# Terminal 2: serve examples (if using harness scripts)
 pnpm serve:examples
 ```
 
 In Neovim:
 
 ```
-:CjigConnect                  " stderr shows "Connected to localhost:9222"
+:CjigConnect                  " connects to Chrome on localhost:9222
 :CjigTabs                     " floating window lists tabs
 
 " Open a scratch .js file, type:

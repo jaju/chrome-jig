@@ -15,6 +15,7 @@ import { inject } from './commands/inject.js';
 import { evaluate, formatValue, formatJson } from './commands/eval.js';
 import { evaluateCljs } from './commands/cljs-eval.js';
 import { installSkill, uninstallSkill } from './commands/install-skill.js';
+import { installNvim, uninstallNvim, printSetupSnippets } from './commands/install-nvim.js';
 import { interactiveInit, generateConfig, writeConfig } from './commands/init.js';
 import { serve } from './commands/serve.js';
 
@@ -40,6 +41,8 @@ Commands:
   env                 Print shell environment setup
   install-skill       Install as Claude skill
   uninstall-skill     Remove Claude skill
+  install-nvim        Install Neovim plugin (stable symlink)
+  uninstall-nvim      Remove Neovim plugin
   help                Show this help
 
 Options:
@@ -390,6 +393,33 @@ async function main() {
           console.log(`✓ ${result.message}`);
         } else {
           console.error(`✗ ${result.message}`);
+          process.exit(1);
+        }
+        break;
+      }
+
+      case 'install-nvim': {
+        const nvimResult = installNvim();
+        if (nvimResult.success) {
+          console.log(`✓ ${nvimResult.message}`);
+          console.log(`  ${nvimResult.symlinkPath} → ${nvimResult.sourcePath}`);
+          printSetupSnippets(nvimResult.symlinkPath!);
+        } else {
+          console.error(`✗ ${nvimResult.message}`);
+          process.exit(1);
+        }
+        break;
+      }
+
+      case 'uninstall-nvim': {
+        const nvimResult = uninstallNvim();
+        if (nvimResult.success) {
+          console.log(`✓ ${nvimResult.message}`);
+          if (nvimResult.symlinkPath) {
+            console.log(`  Removed: ${nvimResult.symlinkPath}`);
+          }
+        } else {
+          console.error(`✗ ${nvimResult.message}`);
           process.exit(1);
         }
         break;
