@@ -25,6 +25,7 @@ export type { EvalResult } from './commands/eval.js';
 export { compile } from './cljs/compiler.js';
 export type { CompileResult } from './cljs/compiler.js';
 export { evaluateCljs } from './commands/cljs-eval.js';
+export { buildCoreScript, injectRuntime, invalidateRuntime } from './cljs/runtime.js';
 
 // REPL
 export { Repl } from './repl/repl.js';

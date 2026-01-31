@@ -7,3 +7,6 @@ declare module 'squint-cljs' {
 
   export function compileString(source: string, opts?: CompileOptions): string;
 }
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+declare module 'squint-cljs/core.js';

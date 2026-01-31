@@ -4,6 +4,7 @@
 
 import { ChromeConnection } from '../chrome/connection.js';
 import { compile } from '../cljs/compiler.js';
+import { injectRuntime } from '../cljs/runtime.js';
 import type { EvalResult } from './eval.js';
 
 export async function evaluateCljs(
@@ -16,6 +17,7 @@ export async function evaluateCljs(
   }
 
   try {
+    await injectRuntime(connection);
     const value = await connection.evaluate(compiled.js!);
     return { success: true, value };
   } catch (err) {

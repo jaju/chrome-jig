@@ -178,6 +178,24 @@ cjig cljs-eval "(str \"hello\" \" \" \"world\")"
 cjig cljs-eval "(map inc [1 2 3])"
 ```
 
+### Core functions
+
+Squint's core runtime (238 functions) is injected automatically before each evaluation. All standard ClojureScript functions work:
+
+```bash
+cjig cljs-eval "(reduce + (range 10))"
+# 45
+
+cjig cljs-eval "(filter odd? (range 20))"
+# (1 3 5 7 9 11 13 15 17 19)
+
+cjig cljs-eval "(map inc [1 2 3])"
+# (2 3 4)
+
+cjig cljs-eval "(let [a (atom 0)] (swap! a inc) @a)"
+# 1
+```
+
 ### DOM access via JS interop
 
 ```bash
