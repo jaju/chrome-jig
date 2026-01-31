@@ -36,21 +36,30 @@ export interface SessionOptions {
 }
 
 /** Built-in method handlers */
-const builtinMethods: Record<string, MethodHandler> = {
+export const builtinMethods: Record<string, MethodHandler> = {
   async eval(params, connection) {
     const code = String(params.code ?? '');
     if (!code) throw new Error('Missing param: code');
+
+    const lang = String(params.lang ?? 'js');
+
+    if (lang === 'cljs') {
+      const result = await evaluateCljs(connection, code);
+      if (!result.success) throw new Error(result.error);
+      return result.value;
+    }
+
+    if (lang !== 'js') {
+      throw new Error(`Unknown lang: ${lang}. Supported: js, cljs`);
+    }
+
     const result = await evaluate(connection, code);
     if (!result.success) throw new Error(result.error);
     return result.value;
   },
 
-  async 'cljs-eval'(params, connection) {
-    const code = String(params.code ?? '');
-    if (!code) throw new Error('Missing param: code');
-    const result = await evaluateCljs(connection, code);
-    if (!result.success) throw new Error(result.error);
-    return result.value;
+  async 'cljs-eval'(params, connection, config) {
+    return builtinMethods.eval({ ...params, lang: 'cljs' }, connection, config);
   },
 
   async tabs(_params, connection) {

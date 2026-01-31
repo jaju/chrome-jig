@@ -22,7 +22,14 @@ cjig serve --stdio
 
 ### `eval`
 
-Evaluate JavaScript in the current browser tab.
+Evaluate code in the current browser tab.
+
+| Param  | Type   | Default | Description                        |
+|--------|--------|---------|------------------------------------|
+| `code` | string | —       | **Required.** Code to evaluate     |
+| `lang` | string | `"js"`  | Language: `"js"` or `"cljs"`       |
+
+JavaScript (default):
 
 ```json
 {"jsonrpc":"2.0","id":1,"method":"eval","params":{"code":"document.title"}}
@@ -32,16 +39,26 @@ Evaluate JavaScript in the current browser tab.
 {"jsonrpc":"2.0","id":1,"result":"My Page Title"}
 ```
 
-### `cljs-eval`
-
-Compile ClojureScript (via squint-cljs) and evaluate in the browser.
+ClojureScript (compiled via squint-cljs):
 
 ```json
-{"jsonrpc":"2.0","id":2,"method":"cljs-eval","params":{"code":"(+ 1 2)"}}
+{"jsonrpc":"2.0","id":2,"method":"eval","params":{"code":"(+ 1 2)","lang":"cljs"}}
 ```
 
 ```json
 {"jsonrpc":"2.0","id":2,"result":3}
+```
+
+### `cljs-eval`
+
+Alias for `eval` with `lang: "cljs"`. Kept for backward compatibility.
+
+```json
+{"jsonrpc":"2.0","id":3,"method":"cljs-eval","params":{"code":"(str \"hello\" \" world\")"}}
+```
+
+```json
+{"jsonrpc":"2.0","id":3,"result":"hello world"}
 ```
 
 ### `tabs`
@@ -112,5 +129,4 @@ Example error response:
 
 ## Future Extensions
 
-- **`lang` parameter**: The `eval` method will accept `params.lang` to select the evaluation language (`js`, `cljs`), unifying `eval` and `cljs-eval`.
 - **nREPL adapter**: A bencode-over-TCP protocol adapter sharing the same session core, enabling Conjure and CIDER integration.

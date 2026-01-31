@@ -83,6 +83,13 @@ describe('JsonRpcProtocol', () => {
         expect(result.id).toBe(42);
       }
     });
+
+    it('passes lang param through to eval request', () => {
+      const input = '{"jsonrpc":"2.0","id":1,"method":"eval","params":{"code":"(+ 1 2)","lang":"cljs"}}';
+      const result = protocol.parse(input);
+      expect(isProtocolError(result)).toBe(false);
+      expect(result).toEqual({ id: 1, method: 'eval', params: { code: '(+ 1 2)', lang: 'cljs' } });
+    });
   });
 
   describe('formatResult', () => {
