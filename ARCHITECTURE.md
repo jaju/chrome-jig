@@ -608,6 +608,16 @@ All evaluation methods on `ChromeConnection` — `evaluate()`, `injectScript()`,
 
 **In-browser fetch**: `injectScript(url)` fetches the script URL inside the browser via a CDP-evaluated `fetch()` call, then executes the content with indirect eval `(0, eval)(t)` to ensure globals land in the page's main world scope rather than the callback's closure scope.
 
+### Async Readline Drain
+
+Node's `readline` emits `'line'` and `'close'` events via `EventEmitter`. When an async function is used as a `'line'` listener, `EventEmitter` calls it synchronously — executing the function body up to the first `await`, then moving on. It does **not** wait for the returned promise to settle. This means `'close'` fires while async `'line'` handlers are still in flight.
+
+For an interactive REPL this is harmless — the user controls the pace. But when stdin is a pipe (`echo '...' | cjig serve --stdio`), EOF arrives immediately after the last line. Readline emits `'line'` and `'close'` in rapid succession. If `Session.start()` resolves its promise on `'close'`, the caller (`serve()` → `cli.ts`) calls `disconnect()` → `browser.close()` while the CDP evaluation is still running, producing `Target page, context or browser has been closed`.
+
+**Fix**: `Session` tracks in-flight handlers with a `pending` counter. The `'close'` listener awaits a drain promise that resolves only when `pending` reaches zero. The `start()` promise uses a single `'close'` listener (not two — registering both a drain handler and a separate `resolve` callback would race, because `EventEmitter` calls them synchronously in registration order, and the `resolve` would fire before the async drain handler's `await` completes).
+
+**General principle**: Any time an `EventEmitter` listener is `async`, downstream events can fire before the async work finishes. If cleanup depends on completion, the listener must signal completion through a side channel (counter + drain promise), not through the event system itself.
+
 ### ClojureScript Runtime Injection
 
 `cljs-eval` compiles ClojureScript via squint-cljs, which emits references to `squint_core.fn(...)` for core functions (`map`, `filter`, `reduce`, `range`, `atom` — 238 total). The runtime must be present in the browser before the compiled code runs.
