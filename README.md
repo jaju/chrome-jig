@@ -2,6 +2,24 @@
 
 A CLI tool for Chrome debugging with script injection, file watching, and Claude skill support.
 
+## Why This Tool
+
+chrome-debug-repl is a **harness development workflow tool**, not a generic CDP client. It manages the inject → exercise → modify → re-inject loop that no other tool handles.
+
+| Capability | chrome-debug-repl | Chrome DevTools MCP | cdp-cli | chrome-remote-interface |
+|---|---|---|---|---|
+| Named script registry | Yes | No | No | No |
+| File watch + auto re-inject | Yes | No | No | No |
+| Project config hierarchy | Yes | No | No | No |
+| Chrome profile management | Yes | No | No | No |
+| Interactive REPL with dot-commands | Yes | No | No | Basic |
+| One-shot eval | Yes | Via LLM loop | Yes | Yes |
+| Pre-build hooks | Yes | No | No | No |
+| Claude skill integration | Yes | N/A (is MCP) | No | No |
+| LLM-free (direct CLI) | Yes | No (requires LLM) | Yes | Yes |
+
+Every other CDP tool treats browser interaction as isolated commands. chrome-debug-repl treats it as a *development session* — your project config defines named scripts, your file watcher re-injects on save, your build hooks run automatically, and your Chrome profile persists state across runs.
+
 ## Installation
 
 ```bash
@@ -176,6 +194,10 @@ Then Claude can use it via the SKILL.md instructions.
 ~/.local/state/chrome-debug-repl/
 └── last-session.json     # Session state
 ```
+
+## Development
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for technical internals — module structure, data flow diagrams, CSP bypass strategy, and design decisions.
 
 ## License
 

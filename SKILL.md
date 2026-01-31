@@ -1,75 +1,84 @@
-# Chrome Debug REPL Skill
+# Chrome Debug REPL — Claude Skill
 
-Control Chrome for debugging, testing, and script injection.
+## Purpose
 
-## When to Use
+Drive harness development workflows in Chrome from the command line. This skill lets you launch isolated Chrome sessions, inject named scripts, evaluate JavaScript, and manage the full inject → exercise → modify → re-inject development loop.
 
-- User asks to debug something in Chrome
-- User wants to inject and test a script/harness
-- User needs to evaluate JavaScript in a live page
-- User wants to test a web application
+## Mental Model
 
-## Commands
+- **Session** = Chrome instance + profile + persisted state (cookies, localStorage, etc.)
+- **Harness** = named script from the project's script registry, injected into a page
+- **Lifecycle**: launch → navigate → inject → exercise → [modify → auto-reinject] → exercise
 
-### Check Status
+The project's `.chrome-debug.json` is the source of truth. Read it first to understand what scripts are available, what build hooks exist, and what file paths are watched.
 
-```bash
-chrome-debug status
-```
+## Speed Principle
 
-Returns whether Chrome is running with debugging enabled.
+Prefer `chrome-debug` CLI commands over Chrome DevTools MCP tools whenever possible:
 
-### Launch Chrome
+- `chrome-debug eval "expr"` = direct, instant, no LLM round-trip
+- MCP browser tools = each action round-trips through the LLM
 
-```bash
-chrome-debug launch
-chrome-debug launch --profile=testing
-```
+**Rule**: Use `chrome-debug` for eval, inject, tabs, launch, and status.
 
-Launches Chrome with remote debugging. Uses isolated profile stored in XDG directories.
+**Fall back to Chrome DevTools MCP** only for capabilities the CLI lacks: screenshots, performance traces, network inspection, DOM snapshots, and visual page interaction.
 
-### List Tabs
+## Session Management
 
-```bash
-chrome-debug tabs
-```
+- `chrome-debug status` — check if Chrome is running
+- `chrome-debug launch` — start Chrome with default profile
+- `chrome-debug launch --profile=testing` — start with a named profile
+- Profiles are isolated from the user's normal browser
+- State persists across runs in `~/.local/share/chrome-debug-repl/chrome-profiles/`
+- Session metadata stored at `~/.local/state/chrome-debug-repl/`
 
-Shows all open tabs with index and URL.
+## Harness Workflow
 
-### Evaluate JavaScript
+1. **Read project config**: check `.chrome-debug.json` in the project root for `scripts.registry`
+2. **Launch Chrome** if not running: `chrome-debug launch`
+3. **Navigate** to the target page: `chrome-debug eval "location.href = 'http://...'"`
+4. **Inject harness** by name: `chrome-debug inject <name>`
+5. **Exercise** via eval using `windowApi` or `alias` from the registry: `chrome-debug eval "BS.overlayOn()"`
+6. **For iterative development**, suggest `.watch on` in the REPL for live reload on file save
 
-```bash
-chrome-debug eval "document.title"
-chrome-debug eval "myApi.getStatus()"
-```
+## Command Reference
 
-One-shot JavaScript evaluation in the current tab.
+### Session
 
-### Inject Script
+| Command | Description |
+|---|---|
+| `chrome-debug launch [--profile=NAME]` | Launch Chrome with debugging enabled |
+| `chrome-debug status` | Check if Chrome is running |
 
-```bash
-chrome-debug inject bs                    # By name from project config
-chrome-debug inject http://localhost:5173/my-script.js  # By URL
-```
+### Navigation
 
-Inject a script into the current page. Named scripts come from `.chrome-debug.json`.
+| Command | Description |
+|---|---|
+| `chrome-debug tabs` | List open tabs |
+| `chrome-debug tab <pattern\|index>` | Switch to a tab |
+| `chrome-debug open <url>` | Open a new tab |
 
-### Interactive REPL
+### Harness
 
-```bash
-chrome-debug repl
-```
+| Command | Description |
+|---|---|
+| `chrome-debug inject <name\|url>` | Inject a script by registry name or URL |
+| `chrome-debug eval <expression>` | Evaluate JavaScript in the current tab |
+| `chrome-debug repl` | Start interactive REPL |
 
-Starts an interactive REPL. Inside:
-- Type JavaScript expressions to evaluate them
-- Use `.tabs` to list tabs
-- Use `.tab <pattern>` to switch tabs
-- Use `.inject <name>` to inject scripts
-- Use `.help` for all commands
+### Configuration
 
-## Project Configuration
+| Command | Description |
+|---|---|
+| `chrome-debug config` | Show resolved configuration |
+| `chrome-debug init` | Generate project `.chrome-debug.json` |
+| `chrome-debug env` | Print shell aliases and exports |
+| `chrome-debug install-skill` | Symlink skill to `~/.claude/skills/` |
+| `chrome-debug uninstall-skill` | Remove skill symlink |
 
-If the project has `.chrome-debug.json`:
+## Reading Project Config
+
+The `.chrome-debug.json` file defines the development environment:
 
 ```json
 {
@@ -79,54 +88,39 @@ If the project has `.chrome-debug.json`:
       "bs": {
         "path": "block-segmenter-harness.js",
         "windowApi": "BlockSegmenter",
+        "alias": "BS",
         "quickStart": "BS.overlayOn()"
       }
     }
+  },
+  "watch": {
+    "paths": ["dist/harnesses/*.js"],
+    "debounce": 300
+  },
+  "hooks": {
+    "preBuild": "npm run build:harnesses"
   }
 }
 ```
 
-Then `chrome-debug inject bs` injects that harness.
+Key fields:
 
-## Workflow Example
+- `scripts.registry[name].path` — script filename, resolved against `scripts.baseUrl`
+- `scripts.registry[name].windowApi` — the global object the script exposes (e.g., `window.BlockSegmenter`)
+- `scripts.registry[name].alias` — short name for the API (e.g., `BS`)
+- `scripts.registry[name].quickStart` — example expression to try after injection
+- `watch.paths` — glob patterns for auto-reinject on file change
+- `hooks.preBuild` — build command run before injection
 
-1. Start Chrome:
-   ```bash
-   chrome-debug launch
-   ```
+## When to Suggest REPL vs eval
 
-2. Navigate to target page (manually or via eval):
-   ```bash
-   chrome-debug eval "location.href = 'http://localhost:5173'"
-   ```
+- **REPL** (`chrome-debug repl`): when the user needs interactive exploration, or wants `.watch on` for live reload during development
+- **eval** (`chrome-debug eval "..."`): for automated actions — fast, scriptable, one-shot
+- REPL dot-commands (`.inject`, `.watch`, `.tabs`, `.build`, `.reload`) are for human interactive use
 
-3. Inject harness:
-   ```bash
-   chrome-debug inject bs
-   ```
+## Anti-Patterns
 
-4. Use the API:
-   ```bash
-   chrome-debug eval "BS.overlayOn()"
-   ```
-
-5. For iterative work, use REPL:
-   ```bash
-   chrome-debug repl
-   > .watch on          # Auto-reinject on file changes
-   > BS.highlightBlock(document.body)
-   ```
-
-## Environment Variables
-
-Set these in shell or CI:
-
-- `CHROME_DEBUG_PORT=9222` - CDP port
-- `CHROME_DEBUG_PROFILE=default` - Profile name
-- `CHROME_PATH=/path/to/chrome` - Chrome executable
-
-## Notes
-
-- Chrome runs with an isolated profile (not your normal browser profile)
-- File watching re-injects scripts when source files change
-- The `preBuild` hook can rebuild before injection
+- Do not use Chrome DevTools MCP `evaluate_script` when `chrome-debug eval` works — it adds unnecessary LLM round-trips
+- Do not suggest manual URL injection when a script is registered by name in the project config
+- Do not forget to check `chrome-debug status` before attempting to connect
+- Do not skip reading `.chrome-debug.json` — it tells you what harnesses exist and how to use them

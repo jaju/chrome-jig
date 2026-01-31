@@ -166,11 +166,15 @@ export async function launchChrome(options: LaunchOptions): Promise<LaunchResult
     };
   }
 
-  // Check if port is already in use
+  // If Chrome is already running on this port, report success
   if (await isPortInUse(port)) {
+    const session = loadSessionState();
     return {
-      success: false,
-      message: `Port ${port} is already in use. Chrome may already be running with debugging.`,
+      success: true,
+      message: `Chrome already running on port ${port}`,
+      pid: session?.pid,
+      port,
+      profile: session?.profile ?? profile,
     };
   }
 

@@ -12,7 +12,8 @@
     "build": "tsc",
     "dev": "tsx src/cli.ts",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src --ext .ts"
+    "lint": "eslint src --ext .ts",
+    "serve:examples": "npx serve examples -p 3333 -C"
   },
   "keywords": [
     "chrome",

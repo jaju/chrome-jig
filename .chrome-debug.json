@@ -1,0 +1,18 @@
+{
+  "scripts": {
+    "baseUrl": "http://localhost:3333/harnesses/",
+    "registry": {
+      "fancy-demo": {
+        "path": "fancy-demo.js",
+        "label": "Particle Overlay Demo",
+        "windowApi": "FancyDemo",
+        "alias": "FX",
+        "quickStart": "FX.burst(50)"
+      }
+    }
+  },
+  "watch": {
+    "paths": ["examples/harnesses/*.js"],
+    "debounce": 300
+  }
+}

@@ -189,25 +189,55 @@ export class ChromeConnection {
   }
 
   /**
-   * Inject a script into the current page
+   * Inject a script into the current page by URL.
+   * Fetches content server-side, then evaluates via CDP
+   * to bypass CSP restrictions entirely.
    */
   async injectScript(url: string): Promise<void> {
     if (!this.currentPage) {
       throw new Error('No page selected');
     }
 
-    await this.currentPage.addScriptTag({ url });
+    const res = await fetch(url);
+    if (!res.ok) {
+      throw new Error(`Failed to fetch ${url}: ${res.status} ${res.statusText}`);
+    }
+    const content = await res.text();
+
+    await this.evaluateInMainWorld(content);
   }
 
   /**
-   * Inject script content directly
+   * Inject script content directly via CDP evaluation,
+   * bypassing CSP restrictions.
    */
   async injectScriptContent(content: string): Promise<void> {
     if (!this.currentPage) {
       throw new Error('No page selected');
     }
 
-    await this.currentPage.addScriptTag({ content });
+    await this.evaluateInMainWorld(content);
+  }
+
+  /**
+   * Evaluate JavaScript in the page's main world via CDP Runtime.evaluate.
+   * Unlike Playwright's page.evaluate(), this shares the page's global scope,
+   * so assignments to window.* are visible to subsequent page scripts.
+   */
+  private async evaluateInMainWorld(expression: string): Promise<void> {
+    const cdp = await this.getCDPSession();
+    const result = await cdp.send('Runtime.evaluate', {
+      expression,
+      returnByValue: false,
+      awaitPromise: true,
+    });
+
+    if (result.exceptionDetails) {
+      const text = result.exceptionDetails.text
+        ?? result.exceptionDetails.exception?.description
+        ?? 'Script evaluation failed';
+      throw new Error(text);
+    }
   }
 
   /**

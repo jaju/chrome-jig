@@ -81,7 +81,7 @@ Technical architecture documentation for the chrome-debug-repl project.
 │                      Page Selected                                   │
 │                                                                      │
 │  evaluate(expression)  →  CDP evaluation                            │
-│  injectScript(url)     →  page.addScriptTag({ url })               │
+│  injectScript(url)     →  fetch + CDP Runtime.evaluate             │
 │  reload()              →  page.reload()                             │
 └──────────────────────────────┬──────────────────────────────────────┘
                                │
@@ -106,7 +106,7 @@ Technical architecture documentation for the chrome-debug-repl project.
 | `selectPage(pattern)` | Select page by URL substring match |
 | `selectPageByIndex(n)` | Select page by numeric index |
 | `evaluate<T>(expr)` | Run JavaScript, return result |
-| `injectScript(url)` | Add script tag to page |
+| `injectScript(url)` | Fetch script, evaluate via CDP in main world |
 | `getCDPSession()` | Get raw CDP session for advanced ops |
 
 ## Configuration System
@@ -450,9 +450,9 @@ CLI: chrome-debug inject bs
     ┌──────────────────────────────────────┐
     │ connection.injectScript(url)         │
     │   ↓                                  │
-    │ page.addScriptTag({ url })           │
+    │ fetch(url) → script content          │
     │   ↓                                  │
-    │ CDP Page.addScriptToEvaluateOnNewDocument │
+    │ CDP Runtime.evaluate(content)        │
     └──────────┬───────────────────────────┘
                │
                ▼
@@ -580,3 +580,42 @@ const DEFAULT_CHROME_FLAGS = [
 ```
 
 These prevent Chrome from throttling JavaScript execution when tabs are backgrounded, which is essential for debugging.
+
+## Development Notes
+
+### Script Injection and CSP
+
+Scripts are injected via CDP `Runtime.evaluate`, not via DOM `<script>` tags. This is deliberate: Playwright's `page.addScriptTag({ url })` and `page.addScriptTag({ content })` both create DOM elements subject to the target page's Content Security Policy. Many pages (including `chrome://` pages) restrict `script-src` to specific origins, blocking injection entirely.
+
+The injection path is:
+
+1. **`injectScript(url)`**: Node.js `fetch()` retrieves the script content server-side
+2. **`evaluateInMainWorld(content)`**: CDP `Runtime.evaluate` executes the content directly in the page's V8 context
+
+This bypasses CSP completely — no DOM elements are created, so `script-src` directives don't apply.
+
+Note that Playwright's `page.evaluate()` runs in an **isolated world** (separate JS context), so `window.*` assignments made there are invisible to the page. The `evaluateInMainWorld` helper uses a raw CDP session (`getCDPSession()`) to evaluate in the page's main world, where globals are shared with the page and the DevTools console.
+
+### Idempotent Launch
+
+`chrome-debug launch` checks whether Chrome is already listening on the configured port. If so, it returns success and reuses the existing instance rather than failing with a "port in use" error. This makes `launch` safe to call unconditionally — scripts and workflows don't need to check `status` first.
+
+### Dogfooding Setup
+
+The `examples/` directory and `.chrome-debug.json` at the project root provide a self-contained loop for exercising the full workflow:
+
+```bash
+# Terminal 1: serve example scripts over HTTP
+npm run serve:examples        # npx serve examples -p 3333 -C
+
+# Terminal 2: the development loop
+chrome-debug launch
+chrome-debug inject fancy-demo
+chrome-debug eval "FX.burst(50)"
+```
+
+The `fancy-demo` harness is a particle-system overlay chosen because visual changes (colors, sizes, speeds) are immediately obvious — ideal for demonstrating the re-inject feedback loop. The script is idempotent: on re-injection it tears down the previous instance before rebuilding.
+
+### Build vs Source
+
+The global `chrome-debug` command (installed via `npm link`) loads `dist/cli.js`. You must run `npm run build` after source changes for the global command to pick them up. Use `npm run dev -- <cmd>` during development to run directly from TypeScript source via `tsx`.
