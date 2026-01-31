@@ -64,6 +64,7 @@ Prefer `cjig` CLI commands over Chrome DevTools MCP tools whenever possible:
 |---|---|
 | `cjig inject <name\|url>` | Inject a script by registry name or URL |
 | `cjig eval <expression>` | Evaluate JavaScript in the current tab |
+| `cjig cljs-eval <code>` | Compile ClojureScript and evaluate in the current tab |
 | `cjig repl` | Start interactive REPL |
 
 ### Configuration

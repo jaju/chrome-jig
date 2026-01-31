@@ -44,6 +44,7 @@ chrome-jig/
 │   │   └── xdg.ts            # XDG Base Directory paths
 │   ├── commands/
 │   │   ├── eval.ts           # JavaScript evaluation
+│   │   ├── cljs-eval.ts      # ClojureScript evaluation (compile + eval)
 │   │   ├── inject.ts         # Script injection
 │   │   ├── init.ts           # Project config generation
 │   │   ├── install-skill.ts  # Claude skill installation
@@ -51,6 +52,9 @@ chrome-jig/
 │   │   ├── serve.ts          # JSON-RPC serve command
 │   │   ├── status.ts         # Chrome status check
 │   │   └── tabs.ts           # Tab listing/selection
+│   ├── cljs/
+│   │   ├── compiler.ts       # squint-cljs compilation
+│   │   └── runtime.ts        # Squint core runtime injection
 │   ├── session/
 │   │   ├── protocol.ts       # Protocol interface & types
 │   │   ├── session.ts        # Shared session core (method dispatch)
@@ -76,7 +80,7 @@ Uses `playwright-core` (not the full Playwright) as a high-level CDP client. Thi
 
 - Stable WebSocket connection management
 - Page/context abstractions
-- Script injection via `addScriptTag`
+- CDP session management for `Runtime.evaluate`
 - Robust error handling
 
 The `ChromeConnection` class (`src/chrome/connection.ts`) wraps Playwright's `chromium.connectOverCDP()`.
