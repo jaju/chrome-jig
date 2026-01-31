@@ -4,21 +4,13 @@ A CLI tool for Chrome debugging with script injection, file watching, and Claude
 
 ## Why This Tool
 
-chrome-debug-repl is a **harness development workflow tool**, not a generic CDP client. It manages the inject → exercise → modify → re-inject loop that no other tool handles.
+chrome-debug-repl is a CLI for Chrome debugging workflows: launch, inject scripts, evaluate JavaScript, watch files, and re-inject on change. It uses CDP (Chrome DevTools Protocol) underneath — the same protocol that Chrome MCP, Puppeteer, and other tools use.
 
-| Capability | chrome-debug-repl | Chrome DevTools MCP | cdp-cli | chrome-remote-interface |
-|---|---|---|---|---|
-| Named script registry | Yes | No | No | No |
-| File watch + auto re-inject | Yes | No | No | No |
-| Project config hierarchy | Yes | No | No | No |
-| Chrome profile management | Yes | No | No | No |
-| Interactive REPL with dot-commands | Yes | No | No | Basic |
-| One-shot eval | Yes | Via LLM loop | Yes | Yes |
-| Pre-build hooks | Yes | No | No | No |
-| Claude skill integration | Yes | N/A (is MCP) | No | No |
-| LLM-free (direct CLI) | Yes | No (requires LLM) | Yes | Yes |
+**Where it helps over generic CDP tools**: Compound operations that would otherwise require multiple manual steps. A named script registry resolves short names to URLs via project config (`.chrome-debug.json`). File watching detects changes and re-injects automatically. Idempotent launch reuses an existing Chrome instance instead of failing on port conflicts. These are workflow-level conveniences — they compose CDP primitives, they don't extend them.
 
-Every other CDP tool treats browser interaction as isolated commands. chrome-debug-repl treats it as a *development session* — your project config defines named scripts, your file watcher re-injects on save, your build hooks run automatically, and your Chrome profile persists state across runs.
+**Where it doesn't help**: Single evaluations, screenshots, DOM inspection, network traces. Any CDP client can do these equally well. Chrome MCP's `evaluate_script` and this tool's `eval` both call `Runtime.evaluate` in the end.
+
+**Independent developer workflow**: The CLI is usable without any LLM. `chrome-debug launch && chrome-debug inject my-script && chrome-debug repl` is a complete development loop with no AI in the path.
 
 ## Installation
 
@@ -197,7 +189,7 @@ Then Claude can use it via the SKILL.md instructions.
 
 ## Development
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for technical internals — module structure, data flow diagrams, CSP bypass strategy, and design decisions.
+See [ARCHITECTURE.md](ARCHITECTURE.md) for technical internals — module structure, data flow diagrams, CDP execution model, and design decisions.
 
 ## License
 

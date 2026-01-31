@@ -81,7 +81,7 @@ Technical architecture documentation for the chrome-debug-repl project.
 │                      Page Selected                                   │
 │                                                                      │
 │  evaluate(expression)  →  CDP evaluation                            │
-│  injectScript(url)     →  fetch + CDP Runtime.evaluate             │
+│  injectScript(url)     →  browser fetch + eval via CDP             │
 │  reload()              →  page.reload()                             │
 └──────────────────────────────┬──────────────────────────────────────┘
                                │
@@ -106,7 +106,7 @@ Technical architecture documentation for the chrome-debug-repl project.
 | `selectPage(pattern)` | Select page by URL substring match |
 | `selectPageByIndex(n)` | Select page by numeric index |
 | `evaluate<T>(expr)` | Run JavaScript, return result |
-| `injectScript(url)` | Fetch script, evaluate via CDP in main world |
+| `injectScript(url)` | Fetch + eval script in browser via CDP main world |
 | `getCDPSession()` | Get raw CDP session for advanced ops |
 
 ## Configuration System
@@ -450,9 +450,8 @@ CLI: chrome-debug inject bs
     ┌──────────────────────────────────────┐
     │ connection.injectScript(url)         │
     │   ↓                                  │
-    │ fetch(url) → script content          │
-    │   ↓                                  │
-    │ CDP Runtime.evaluate(content)        │
+    │ CDP Runtime.evaluate:                │
+    │   fetch(url) → text → (0,eval)(text) │
     └──────────┬───────────────────────────┘
                │
                ▼
@@ -583,18 +582,19 @@ These prevent Chrome from throttling JavaScript execution when tabs are backgrou
 
 ## Development Notes
 
-### Script Injection and CSP
+### CDP Execution Model and Script Injection
 
-Scripts are injected via CDP `Runtime.evaluate`, not via DOM `<script>` tags. This is deliberate: Playwright's `page.addScriptTag({ url })` and `page.addScriptTag({ content })` both create DOM elements subject to the target page's Content Security Policy. Many pages (including `chrome://` pages) restrict `script-src` to specific origins, blocking injection entirely.
+Scripts are injected via CDP `Runtime.evaluate`. Understanding why requires knowing how CDP, Playwright, and CSP interact.
 
-The injection path is:
+**CDP `Runtime.evaluate`** runs JavaScript directly in a page's V8 context via the debugger. Its `allowUnsafeEvalBlockedByCSP` parameter defaults to `true`, so CSP's `unsafe-eval` restriction does not apply. This is true for any CDP client — our CLI, Chrome MCP, Puppeteer, or a raw WebSocket connection. There is no special capability here.
 
-1. **`injectScript(url)`**: Node.js `fetch()` retrieves the script content server-side
-2. **`evaluateInMainWorld(content)`**: CDP `Runtime.evaluate` executes the content directly in the page's V8 context
+**Why `addScriptTag` fails under CSP**: Playwright's `page.addScriptTag({ url })` and `page.addScriptTag({ content })` create DOM `<script>` elements. CSP's `script-src` directive governs DOM script elements, so pages that restrict `script-src` (including `chrome://` pages) block these injections. This is a Playwright API choice — it uses the DOM path rather than CDP evaluation.
 
-This bypasses CSP completely — no DOM elements are created, so `script-src` directives don't apply.
+**Why `page.evaluate()` loses globals**: Playwright runs `page.evaluate()` in an isolated world, similar to a browser extension's content script. Variables assigned there are invisible to the page's main world. Our `evaluateInMainWorld` helper uses a raw CDPSession to call `Runtime.evaluate` directly, which executes in the page's main world where `window.*` assignments are visible to page scripts and the DevTools console.
 
-Note that Playwright's `page.evaluate()` runs in an **isolated world** (separate JS context), so `window.*` assignments made there are invisible to the page. The `evaluateInMainWorld` helper uses a raw CDP session (`getCDPSession()`) to evaluate in the page's main world, where globals are shared with the page and the DevTools console.
+**MCP equivalence**: Chrome MCP's `evaluate_script` tool uses CDP `Runtime.evaluate` in the main world. It has the same capabilities as our `evaluateInMainWorld`. The difference between this CLI and Chrome MCP is operational — bundled workflows (registry lookup + fetch + inject as one command, file watch + auto re-inject) versus individual primitives — not in what the underlying protocol can do.
+
+**In-browser fetch**: `injectScript(url)` fetches the script URL inside the browser via a CDP-evaluated `fetch()` call, then executes the content with indirect eval `(0, eval)(t)` to ensure globals land in the page's main world scope rather than the callback's closure scope.
 
 ### Idempotent Launch
 

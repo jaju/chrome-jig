@@ -190,21 +190,25 @@ export class ChromeConnection {
 
   /**
    * Inject a script into the current page by URL.
-   * Fetches content server-side, then evaluates via CDP
-   * to bypass CSP restrictions entirely.
+   * Fetches inside the browser via CDP evaluation, then executes
+   * with indirect eval to place globals in the page's main world.
    */
   async injectScript(url: string): Promise<void> {
     if (!this.currentPage) {
       throw new Error('No page selected');
     }
 
-    const res = await fetch(url);
-    if (!res.ok) {
-      throw new Error(`Failed to fetch ${url}: ${res.status} ${res.statusText}`);
-    }
-    const content = await res.text();
-
-    await this.evaluateInMainWorld(content);
+    const expression = `
+      fetch(${JSON.stringify(url)})
+        .then(r => {
+          if (!r.ok) throw new Error('Failed to fetch ' + ${JSON.stringify(url)} + ': ' + r.status);
+          return r.text();
+        })
+        .then(t => {
+          (0, eval)(t);
+        })
+    `;
+    await this.evaluateInMainWorld(expression);
   }
 
   /**
