@@ -18,7 +18,8 @@ export { launch } from './commands/launch.js';
 export { status } from './commands/status.js';
 export { listTabs, selectTab } from './commands/tabs.js';
 export { inject } from './commands/inject.js';
-export { evaluate, formatValue } from './commands/eval.js';
+export { evaluate, formatValue, formatJson } from './commands/eval.js';
+export type { EvalResult } from './commands/eval.js';
 
 // REPL
 export { Repl } from './repl/repl.js';

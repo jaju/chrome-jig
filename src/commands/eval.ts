@@ -43,3 +43,7 @@ export function formatValue(value: unknown): string {
 
   return String(value);
 }
+
+export function formatJson(result: EvalResult): string {
+  return JSON.stringify(result);
+}

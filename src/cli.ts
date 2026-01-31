@@ -12,7 +12,7 @@ import { launch } from './commands/launch.js';
 import { status } from './commands/status.js';
 import { listTabs, selectTab } from './commands/tabs.js';
 import { inject } from './commands/inject.js';
-import { evaluate, formatValue } from './commands/eval.js';
+import { evaluate, formatValue, formatJson } from './commands/eval.js';
 import { installSkill, uninstallSkill } from './commands/install-skill.js';
 import { interactiveInit, generateConfig, writeConfig } from './commands/init.js';
 
@@ -42,6 +42,7 @@ Options:
   --port <port>       Chrome debugging port (default: 9222)
   --host <host>       Chrome host (default: localhost)
   --profile <name>    Chrome profile name (default: default)
+  --json              Output as JSON (eval command)
   --help, -h          Show help
 
 Examples:
@@ -58,6 +59,7 @@ async function main() {
       port: { type: 'string', short: 'p' },
       host: { type: 'string', short: 'H' },
       profile: { type: 'string' },
+      json: { type: 'boolean' },
       help: { type: 'boolean', short: 'h' },
     },
   });
@@ -222,7 +224,9 @@ async function main() {
 
         const result = await evaluate(connection, expression);
 
-        if (result.success) {
+        if (values.json) {
+          console.log(formatJson(result));
+        } else if (result.success) {
           console.log(formatValue(result.value));
         } else {
           console.error(`Error: ${result.error}`);
