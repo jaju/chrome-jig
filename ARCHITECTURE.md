@@ -47,6 +47,8 @@ Technical architecture documentation for the chrome-jig project.
 | REPL Commands | `src/repl/commands.ts`     | Dot-command implementations                                  |
 | Completer     | `src/repl/completer.ts`    | Tab completion for REPL                                      |
 | Commands      | `src/commands/*.ts`        | Individual CLI command implementations                       |
+| Cljs Compiler | `src/cljs/compiler.ts`     | squint-cljs compilation wrapper                              |
+| Cljs Runtime  | `src/cljs/runtime.ts`      | ESM→global rewrite, browser injection of squint core         |
 
 ## ChromeConnection Class
 
@@ -412,9 +414,8 @@ CLI: cjig eval "document.title"
     │   ↓                                  │
     │ connection.evaluate(expression)      │
     │   ↓                                  │
-    │ page.evaluate(wrappedExpression)     │
-    │   ↓                                  │
     │ CDP Runtime.evaluate                 │
+    │   (returnByValue: true)              │
     └──────────┬───────────────────────────┘
                │
                ▼
@@ -552,10 +553,11 @@ For integration with external registries (like KlipCeeper harness-registry):
 
 ## Dependencies
 
-| Package           | Version | Purpose                              |
-| ----------------- | ------- | ------------------------------------ |
-| `playwright-core` | ^1.58.0 | CDP client without browser downloads |
-| `chokidar`        | ^5.0.0  | File watching with debounce          |
+| Package           | Version  | Purpose                              |
+| ----------------- | -------- | ------------------------------------ |
+| `playwright-core` | ^1.58.0  | CDP client without browser downloads |
+| `chokidar`        | ^5.0.0   | File watching with debounce          |
+| `squint-cljs`     | ^0.10.185| ClojureScript compiler and core runtime |
 
 ### Why playwright-core
 
@@ -586,19 +588,40 @@ These prevent Chrome from throttling JavaScript execution when tabs are backgrou
 
 ## Development Notes
 
-### CDP Execution Model and Script Injection
+### CDP Execution Model
 
-Scripts are injected via CDP `Runtime.evaluate`. Understanding why requires knowing how CDP, Playwright, and CSP interact.
+All JavaScript evaluation uses CDP `Runtime.evaluate` directly. Understanding why requires knowing how CDP, Playwright, and CSP interact — and where Playwright's abstractions break down.
 
-**CDP `Runtime.evaluate`** runs JavaScript directly in a page's V8 context via the debugger. Its `allowUnsafeEvalBlockedByCSP` parameter defaults to `true`, so CSP's `unsafe-eval` restriction does not apply. This is true for any CDP client — our CLI, Chrome MCP, Puppeteer, or a raw WebSocket connection. There is no special capability here.
+**CDP `Runtime.evaluate`** runs JavaScript directly in a page's V8 context via the debugger. It executes in the page's main world — the same context as the DevTools console. Globals assigned via `globalThis.foo = ...` persist across calls and are visible to page scripts. Its `allowUnsafeEvalBlockedByCSP` parameter defaults to `true`, so CSP's `unsafe-eval` restriction does not apply. This is true for any CDP client — our CLI, Chrome MCP, Puppeteer, or a raw WebSocket connection.
 
-**Why `addScriptTag` fails under CSP**: Playwright's `page.addScriptTag({ url })` and `page.addScriptTag({ content })` create DOM `<script>` elements. CSP's `script-src` directive governs DOM script elements, so pages that restrict `script-src` (including `chrome://` pages) block these injections. This is a Playwright API choice — it uses the DOM path rather than CDP evaluation.
+**Why `addScriptTag` fails under CSP**: Playwright's `page.addScriptTag({ url })` and `page.addScriptTag({ content })` create DOM `<script>` elements. CSP's `script-src` directive governs DOM script elements, so pages that restrict `script-src` (including `chrome://` pages) block these injections.
 
-**Why `page.evaluate()` loses globals**: Playwright runs `page.evaluate()` in an isolated world, similar to a browser extension's content script. Variables assigned there are invisible to the page's main world. Our `evaluateInMainWorld` helper uses a raw CDPSession to call `Runtime.evaluate` directly, which executes in the page's main world where `window.*` assignments are visible to page scripts and the DevTools console.
+**Why we don't use `page.evaluate()`**: Playwright's `page.evaluate()` is unreliable for a debugging tool. On pages with background navigations (ads, live-update scripts, service workers), the execution context is destroyed between calls, producing sporadic `Execution context was destroyed, most likely because of a navigation` errors. This was empirically confirmed — even trivial `page.evaluate('1 + 2')` calls fail intermittently on news sites and other pages with background activity. CDP `Runtime.evaluate` does not have this problem; it binds to the page's main world directly and tolerates background navigations.
 
-**MCP equivalence**: Chrome MCP's `evaluate_script` tool uses CDP `Runtime.evaluate` in the main world. It has the same capabilities as our `evaluateInMainWorld`. The difference between this CLI and Chrome MCP is operational — bundled workflows (registry lookup + fetch + inject as one command, file watch + auto re-inject) versus individual primitives — not in what the underlying protocol can do.
+All evaluation methods on `ChromeConnection` — `evaluate()`, `injectScript()`, `injectScriptContent()` — go through CDP `Runtime.evaluate`. There is no `page.evaluate()` usage anywhere. This means:
+
+1. Globals persist across calls (like the browser console)
+2. Injected scripts and subsequent evaluations share the same world
+3. Background page navigations don't break evaluation
+
+**MCP equivalence**: Chrome MCP's `evaluate_script` tool uses CDP `Runtime.evaluate` in the main world — the same mechanism we use. The difference between this CLI and Chrome MCP is operational (bundled workflows vs individual primitives), not in protocol capabilities.
 
 **In-browser fetch**: `injectScript(url)` fetches the script URL inside the browser via a CDP-evaluated `fetch()` call, then executes the content with indirect eval `(0, eval)(t)` to ensure globals land in the page's main world scope rather than the callback's closure scope.
+
+### ClojureScript Runtime Injection
+
+`cljs-eval` compiles ClojureScript via squint-cljs, which emits references to `squint_core.fn(...)` for core functions (`map`, `filter`, `reduce`, `range`, `atom` — 238 total). The runtime must be present in the browser before the compiled code runs.
+
+**`buildCoreScript()`** (`src/cljs/runtime.ts`) transforms squint's ESM source into an injectable IIFE:
+
+1. Reads `squint-cljs/src/squint/core.js` from disk
+2. Gets the authoritative export list via `Object.keys(await import('squint-cljs/core.js'))` — the module system is the source of truth, not regex
+3. Strips `export ` prefixes with a single `source.replace(/^export /gm, '')`
+4. Wraps in an IIFE that assigns all functions to `globalThis.squint_core`
+
+The IIFE includes a browser-side guard (`globalThis.__cjig_squint_core`) — if the runtime was already evaluated on this page, the IIFE exits after one `typeof` check. The JS string is cached in a module-level variable after first build.
+
+**`injectRuntime()`** tracks which Playwright `Page` object it last injected into. On each call, if the page identity matches, injection is skipped. Tab switches produce a different `Page` object, triggering re-injection. `invalidateRuntime()` resets this tracking for events like page reload that clear JS state without changing the `Page` object.
 
 ### Idempotent Launch
 

@@ -166,26 +166,30 @@ export class ChromeConnection {
   }
 
   /**
-   * Evaluate JavaScript in the current page
+   * Evaluate JavaScript in the current page via CDP Runtime.evaluate.
+   * Runs in the page's main world (same as the browser console),
+   * so globals persist and background navigations don't break it.
    */
   async evaluate<T>(expression: string): Promise<T> {
     if (!this.currentPage) {
       throw new Error('No page selected');
     }
 
-    // Use evaluate for function expressions, evaluateHandle for raw expressions
-    // Wrap in an IIFE to handle both expressions and statements
-    const wrappedExpression = `
-      (async () => {
-        try {
-          return await eval(${JSON.stringify(expression)});
-        } catch (e) {
-          throw e;
-        }
-      })()
-    `;
+    const cdp = await this.getCDPSession();
+    const result = await cdp.send('Runtime.evaluate', {
+      expression,
+      returnByValue: true,
+      awaitPromise: true,
+    });
 
-    return await this.currentPage.evaluate(wrappedExpression) as T;
+    if (result.exceptionDetails) {
+      const text = result.exceptionDetails.text
+        ?? result.exceptionDetails.exception?.description
+        ?? 'Evaluation failed';
+      throw new Error(text);
+    }
+
+    return result.result.value as T;
   }
 
   /**
@@ -194,10 +198,6 @@ export class ChromeConnection {
    * with indirect eval to place globals in the page's main world.
    */
   async injectScript(url: string): Promise<void> {
-    if (!this.currentPage) {
-      throw new Error('No page selected');
-    }
-
     const expression = `
       fetch(${JSON.stringify(url)})
         .then(r => {
@@ -208,7 +208,7 @@ export class ChromeConnection {
           (0, eval)(t);
         })
     `;
-    await this.evaluateInMainWorld(expression);
+    await this.evaluate(expression);
   }
 
   /**
@@ -216,32 +216,7 @@ export class ChromeConnection {
    * bypassing CSP restrictions.
    */
   async injectScriptContent(content: string): Promise<void> {
-    if (!this.currentPage) {
-      throw new Error('No page selected');
-    }
-
-    await this.evaluateInMainWorld(content);
-  }
-
-  /**
-   * Evaluate JavaScript in the page's main world via CDP Runtime.evaluate.
-   * Unlike Playwright's page.evaluate(), this shares the page's global scope,
-   * so assignments to window.* are visible to subsequent page scripts.
-   */
-  private async evaluateInMainWorld(expression: string): Promise<void> {
-    const cdp = await this.getCDPSession();
-    const result = await cdp.send('Runtime.evaluate', {
-      expression,
-      returnByValue: false,
-      awaitPromise: true,
-    });
-
-    if (result.exceptionDetails) {
-      const text = result.exceptionDetails.text
-        ?? result.exceptionDetails.exception?.description
-        ?? 'Script evaluation failed';
-      throw new Error(text);
-    }
+    await this.evaluate(content);
   }
 
   /**

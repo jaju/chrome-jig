@@ -57,7 +57,7 @@ export async function injectRuntime(connection: ChromeConnection): Promise<void>
   if (page === lastInjectedPage) return;
 
   const script = await buildCoreScript();
-  await connection.injectScriptContent(script);
+  await connection.evaluate(script);
   lastInjectedPage = page;
 }
 
