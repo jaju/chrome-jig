@@ -21,6 +21,11 @@ export { inject } from './commands/inject.js';
 export { evaluate, formatValue, formatJson } from './commands/eval.js';
 export type { EvalResult } from './commands/eval.js';
 
+// ClojureScript
+export { compile } from './cljs/compiler.js';
+export type { CompileResult } from './cljs/compiler.js';
+export { evaluateCljs } from './commands/cljs-eval.js';
+
 // REPL
 export { Repl } from './repl/repl.js';
 export type { ReplOptions } from './repl/repl.js';

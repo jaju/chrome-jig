@@ -13,6 +13,7 @@ import { status } from './commands/status.js';
 import { listTabs, selectTab } from './commands/tabs.js';
 import { inject } from './commands/inject.js';
 import { evaluate, formatValue, formatJson } from './commands/eval.js';
+import { evaluateCljs } from './commands/cljs-eval.js';
 import { installSkill, uninstallSkill } from './commands/install-skill.js';
 import { interactiveInit, generateConfig, writeConfig } from './commands/init.js';
 
@@ -30,6 +31,7 @@ Commands:
   open <url>          Open a new tab
   inject <name|url>   Inject a script
   eval <expression>   Evaluate JavaScript
+  cljs-eval <code>    Evaluate ClojureScript
   repl                Interactive REPL
   init                Generate project configuration
   config              Show resolved configuration
@@ -42,7 +44,7 @@ Options:
   --port <port>       Chrome debugging port (default: 9222)
   --host <host>       Chrome host (default: localhost)
   --profile <name>    Chrome profile name (default: default)
-  --json              Output as JSON (eval command)
+  --json              Output as JSON (eval/cljs-eval)
   --help, -h          Show help
 
 Examples:
@@ -234,6 +236,31 @@ async function main() {
         }
 
         await connection.disconnect();
+        break;
+      }
+
+      case 'cljs-eval': {
+        if (args.length === 0) {
+          console.error('Usage: cjig cljs-eval <code>');
+          process.exit(1);
+        }
+
+        const cljsSource = args.join(' ');
+        const cljsConnection = createConnection({ host: config.host, port: config.port });
+        await cljsConnection.connect();
+
+        const cljsResult = await evaluateCljs(cljsConnection, cljsSource);
+
+        if (values.json) {
+          console.log(formatJson(cljsResult));
+        } else if (cljsResult.success) {
+          console.log(formatValue(cljsResult.value));
+        } else {
+          console.error(`Error: ${cljsResult.error}`);
+          process.exit(1);
+        }
+
+        await cljsConnection.disconnect();
         break;
       }
 
