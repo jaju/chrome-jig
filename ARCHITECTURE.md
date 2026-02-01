@@ -56,21 +56,10 @@ Technical architecture documentation for the chrome-jig project.
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Disconnected: createConnection()
-    Disconnected --> Connected: connect()
-    Connected --> PageSelected: selectPage() / selectPageByIndex()
-    PageSelected --> PageSelected: setCurrentPage()\n(invalidates cdpSession)
-    PageSelected --> Disconnected: disconnect()
-
-    state Connected {
-        [*] --> [*]: browser = connectOverCDP()\ncontext = contexts()[0]\ncurrentPage = pages()[0]
-    }
-
-    state PageSelected {
-        [*] --> NoCDPSession
-        NoCDPSession --> HasCDPSession: getCDPSession()
-        HasCDPSession --> NoCDPSession: setCurrentPage()
-    }
+    [*] --> Disconnected
+    Disconnected --> Connected : connect()
+    Connected --> Connected : select page
+    Connected --> Disconnected : disconnect()
 ```
 
 ### CDP Session Lifecycle
