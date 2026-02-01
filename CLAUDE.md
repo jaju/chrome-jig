@@ -20,6 +20,7 @@ cjig tabs             # List open tabs
 cjig eval "document.title"  # One-shot JavaScript evaluation
 cjig repl             # Interactive REPL
 cjig serve --stdio    # JSON-RPC 2.0 server over stdio
+cjig nrepl            # nREPL server for editor integration
 
 # Development
 pnpm dev -- <command>         # Run without building (via tsx)
@@ -49,6 +50,7 @@ chrome-jig/
 │   │   ├── init.ts           # Project config generation
 │   │   ├── install-skill.ts  # Claude skill installation
 │   │   ├── launch.ts         # Chrome launcher command
+│   │   ├── nrepl.ts          # nREPL server command
 │   │   ├── serve.ts          # JSON-RPC serve command
 │   │   ├── status.ts         # Chrome status check
 │   │   └── tabs.ts           # Tab listing/selection
@@ -60,6 +62,11 @@ chrome-jig/
 │   │   ├── session.ts        # Shared session core (method dispatch)
 │   │   ├── repl-protocol.ts  # REPL protocol adapter
 │   │   └── jsonrpc-protocol.ts # JSON-RPC 2.0 adapter
+│   ├── nrepl/
+│   │   ├── types.ts          # nREPL protocol types
+│   │   ├── ops.ts            # Op handlers (clone, close, describe, eval)
+│   │   ├── server.ts         # TCP server with bencode framing
+│   │   └── README.md         # Rationale, research context, limitations
 │   ├── repl/
 │   │   ├── repl.ts           # Interactive REPL (thin shell over Session)
 │   │   ├── commands.ts       # Dot-command implementations
@@ -226,6 +233,10 @@ When used with KlipCeeper, project config typically points to harness URLs:
   }
 }
 ```
+
+### nREPL for Editor Integration
+
+`cjig nrepl` starts a TCP nREPL server (bencode over TCP) so editors like Conjure (Neovim) can evaluate ClojureScript in the browser natively. The server is a thin adapter — its only interaction with cjig core is calling `evaluateCljs()`. See [`src/nrepl/README.md`](src/nrepl/README.md) for design rationale, research context, and known limitations.
 
 ### Claude Skill Installation
 

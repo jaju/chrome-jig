@@ -78,8 +78,23 @@ cjig inject https://...    # Inject by URL
 ```bash
 cjig eval "document.title"        # One-shot eval
 cjig eval "window.myApi.status()" # Call injected API
+cjig cljs-eval "(+ 1 2)"          # Evaluate ClojureScript
 cjig repl                         # Interactive REPL
 ```
+
+### nREPL Server (Editor Integration)
+
+```bash
+cjig nrepl                         # Start server, auto-assign port
+cjig nrepl --nrepl-port 7888       # Specific port
+```
+
+Starts a TCP nREPL server for native editor integration. ClojureScript forms are compiled via squint and evaluated in the browser over CDP.
+
+Editors discover the port via `.nrepl-port` written to the current directory.
+
+- **Conjure (Neovim)**: Connects automatically. Evaluate CLJS forms in your buffer with standard Conjure keybindings.
+- **CIDER (Emacs)**: Not yet supported — CIDER's handshake expects richer metadata than we currently provide.
 
 ## REPL Commands
 
