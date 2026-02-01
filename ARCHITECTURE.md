@@ -54,48 +54,30 @@ Technical architecture documentation for the chrome-jig project.
 
 ### Lifecycle
 
+```mermaid
+stateDiagram-v2
+    [*] --> Disconnected: createConnection()
+    Disconnected --> Connected: connect()
+    Connected --> PageSelected: selectPage() / selectPageByIndex()
+    PageSelected --> PageSelected: setCurrentPage()\n(invalidates cdpSession)
+    PageSelected --> Disconnected: disconnect()
+
+    state Connected {
+        [*] --> [*]: browser = connectOverCDP()\ncontext = contexts()[0]\ncurrentPage = pages()[0]
+    }
+
+    state PageSelected {
+        [*] --> NoCDPSession
+        NoCDPSession --> HasCDPSession: getCDPSession()
+        HasCDPSession --> NoCDPSession: setCurrentPage()
+    }
 ```
-                    ┌─────────────────┐
-                    │   createConnection()   │
-                    │   (factory function)   │
-                    └──────────┬──────────────┘
-                               │
-                               ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                      ChromeConnection                                │
-│                                                                      │
-│  State: browser=null, context=null, currentPage=null                │
-└──────────────────────────────┬──────────────────────────────────────┘
-                               │
-                               │ connect()
-                               ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                      Connected State                                 │
-│                                                                      │
-│  browser = chromium.connectOverCDP(endpoint)                        │
-│  context = browser.contexts()[0]                                    │
-│  currentPage = context.pages()[0]                                   │
-└──────────────────────────────┬──────────────────────────────────────┘
-                               │
-                               │ selectPage() / selectPageByIndex()
-                               ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                      Page Selected                                   │
-│                                                                      │
-│  evaluate(expression)  →  CDP evaluation                            │
-│  injectScript(url)     →  browser fetch + eval via CDP             │
-│  reload()              →  page.reload()                             │
-└──────────────────────────────┬──────────────────────────────────────┘
-                               │
-                               │ disconnect()
-                               ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                      Disconnected                                    │
-│                                                                      │
-│  CDP session detached, browser closed (not killed)                  │
-│  Chrome continues running independently                             │
-└─────────────────────────────────────────────────────────────────────┘
-```
+
+### CDP Session Lifecycle
+
+- **Playwright object hierarchy**: `Browser → BrowserContext → Page`. CDP connections expose one context (`contexts()[0]`). One `currentPage` at a time.
+- **`cdpSession` is lazy and page-bound**. Created on demand by `getCDPSession()`, invalidated by `setCurrentPage()`. See `connection.ts:28–31`.
+- **All protocol adapters share one `ChromeConnection`**. REPL, JSON-RPC, and nREPL all operate on the same connection instance. A page switch in any consumer propagates to all.
 
 ### Key Methods
 

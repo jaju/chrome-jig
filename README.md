@@ -96,6 +96,8 @@ Editors discover the port via `.nrepl-port` written to the current directory.
 - **Conjure (Neovim)**: Connects automatically. Evaluate CLJS forms in your buffer with standard Conjure keybindings.
 - **CIDER (Emacs)**: Not yet supported — CIDER's handshake expects richer metadata than we currently provide.
 
+The REPL and nREPL share a single connection. Tab switches in the REPL (`.tab`) take effect for nREPL evaluations too — no reconnection needed.
+
 ## REPL Commands
 
 ```
