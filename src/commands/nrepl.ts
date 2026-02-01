@@ -1,12 +1,19 @@
 /**
- * nREPL command — start a TCP nREPL server for editor integration
+ * nREPL command — start a TCP nREPL server alongside an interactive REPL.
+ *
+ * The nREPL server is event-driven TCP (returns immediately).
+ * The REPL blocks on readline (stdin). They coexist on the same
+ * event loop, sharing one ChromeConnection.
  */
 
 import { ChromeConnection } from '../chrome/connection.js';
+import { ResolvedConfig } from '../config/schema.js';
 import { startNreplServer } from '../nrepl/server.js';
+import { Repl } from '../repl/repl.js';
 
 export interface NreplCommandOptions {
   connection: ChromeConnection;
+  config: ResolvedConfig;
   port?: number;
   host?: string;
 }
@@ -21,11 +28,11 @@ export async function nrepl(options: NreplCommandOptions): Promise<void> {
   console.log(`nREPL server started on port ${server.port}`);
   console.log('Wrote .nrepl-port');
 
-  await new Promise<void>((resolve) => {
-    process.on('SIGINT', async () => {
-      console.log('\nShutting down nREPL server...');
-      await server.close();
-      resolve();
-    });
+  const repl = new Repl({
+    connection: options.connection,
+    config: options.config,
   });
+
+  await repl.start();
+  await server.close();
 }

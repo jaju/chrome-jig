@@ -21,6 +21,7 @@ const execAsync = promisify(exec);
 export interface ReplOptions {
   connection: ChromeConnection;
   config: ResolvedConfig;
+  lang?: 'js' | 'cljs';
 }
 
 export class Repl {
@@ -30,7 +31,7 @@ export class Repl {
   private session: Session;
 
   constructor(private options: ReplOptions) {
-    this.protocol = new ReplProtocol();
+    this.protocol = new ReplProtocol(options.lang);
 
     this.session = new Session({
       connection: options.connection,

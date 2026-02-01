@@ -35,9 +35,10 @@ Commands:
   inject <name|url>   Inject a script
   eval <expression>   Evaluate JavaScript
   cljs-eval <code>    Evaluate ClojureScript
-  repl                Interactive REPL
+  repl                Interactive REPL (JavaScript)
+  cljs-repl           Interactive REPL (ClojureScript)
   serve --stdio       JSON-RPC 2.0 server over stdio
-  nrepl               Start nREPL server for editor integration
+  nrepl               nREPL server + interactive REPL
   init                Generate project configuration
   config              Show resolved configuration
   env                 Print shell environment setup
@@ -292,6 +293,25 @@ async function main() {
         break;
       }
 
+      case 'cljs-repl': {
+        const cljsReplConn = createConnection({ host: config.host, port: config.port });
+
+        const cljsReplRunning = await cljsReplConn.isRunning();
+        if (!cljsReplRunning) {
+          console.error(`Chrome not running on ${config.host}:${config.port}`);
+          console.error('Run: cjig launch');
+          process.exit(1);
+        }
+
+        await cljsReplConn.connect();
+
+        const cljsRepl = new Repl({ connection: cljsReplConn, config, lang: 'cljs' });
+        await cljsRepl.start();
+
+        await cljsReplConn.disconnect();
+        break;
+      }
+
       case 'serve': {
         if (!values.stdio) {
           console.error('Usage: cjig serve --stdio');
@@ -327,7 +347,7 @@ async function main() {
         await nreplConn.connect();
 
         const nreplPort = values['nrepl-port'] ? parseInt(values['nrepl-port'], 10) : undefined;
-        await nrepl({ connection: nreplConn, port: nreplPort });
+        await nrepl({ connection: nreplConn, config, port: nreplPort });
 
         await nreplConn.disconnect();
         break;

@@ -25,6 +25,11 @@ export class ChromeConnection {
 
   constructor(private options: ConnectionOptions) {}
 
+  private setCurrentPage(page: Page | null): void {
+    this.currentPage = page;
+    this.cdpSession = null;
+  }
+
   get endpoint(): string {
     return `http://${this.options.host}:${this.options.port}`;
   }
@@ -84,7 +89,7 @@ export class ChromeConnection {
       this.context = contexts[0];
       const pages = this.context.pages();
       if (pages.length > 0) {
-        this.currentPage = pages[0];
+        this.setCurrentPage(pages[0]);
       }
     }
   }
@@ -101,7 +106,7 @@ export class ChromeConnection {
       await this.browser.close();
       this.browser = null;
       this.context = null;
-      this.currentPage = null;
+      this.setCurrentPage(null);
     }
   }
 
@@ -130,7 +135,7 @@ export class ChromeConnection {
     const page = pages.find((p) => p.url().toLowerCase().includes(pattern));
 
     if (page) {
-      this.currentPage = page;
+      this.setCurrentPage(page);
       return page;
     }
 
@@ -144,7 +149,7 @@ export class ChromeConnection {
     const pages = await this.getPages();
 
     if (index >= 0 && index < pages.length) {
-      this.currentPage = pages[index];
+      this.setCurrentPage(pages[index]);
       return this.currentPage;
     }
 
@@ -161,7 +166,7 @@ export class ChromeConnection {
 
     const page = await this.context.newPage();
     await page.goto(url);
-    this.currentPage = page;
+    this.setCurrentPage(page);
     return page;
   }
 

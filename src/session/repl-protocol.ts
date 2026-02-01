@@ -48,6 +48,8 @@ export class ReplProtocol implements Protocol {
   /** Track last injected ref for file watching */
   lastInjectRef: string | null = null;
 
+  constructor(private lang: 'js' | 'cljs' = 'js') {}
+
   parse(input: string): Request | ProtocolError | null {
     const trimmed = input.trim();
     if (!trimmed) return null;
@@ -77,7 +79,7 @@ export class ReplProtocol implements Protocol {
     }
 
     // Bare text → eval
-    return { method: 'eval', params: { code: trimmed } };
+    return { method: 'eval', params: { code: trimmed, lang: this.lang } };
   }
 
   formatResult(_request: Request, result: unknown): string {
