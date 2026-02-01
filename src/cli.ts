@@ -18,6 +18,7 @@ import { installSkill, uninstallSkill } from './commands/install-skill.js';
 import { installNvim, uninstallNvim, printSetupSnippets } from './commands/install-nvim.js';
 import { interactiveInit, generateConfig, writeConfig } from './commands/init.js';
 import { serve } from './commands/serve.js';
+import { nrepl } from './commands/nrepl.js';
 
 const USAGE = `
 Chrome Jig - Browser debugging from the command line
@@ -36,6 +37,7 @@ Commands:
   cljs-eval <code>    Evaluate ClojureScript
   repl                Interactive REPL
   serve --stdio       JSON-RPC 2.0 server over stdio
+  nrepl               Start nREPL server for editor integration
   init                Generate project configuration
   config              Show resolved configuration
   env                 Print shell environment setup
@@ -68,6 +70,7 @@ async function main() {
       profile: { type: 'string' },
       json: { type: 'boolean' },
       stdio: { type: 'boolean' },
+      'nrepl-port': { type: 'string' },
       help: { type: 'boolean', short: 'h' },
     },
   });
@@ -308,6 +311,25 @@ async function main() {
         await serveConn.connect();
         await serve({ connection: serveConn, config });
         await serveConn.disconnect();
+        break;
+      }
+
+      case 'nrepl': {
+        const nreplConn = createConnection({ host: config.host, port: config.port });
+
+        const nreplRunning = await nreplConn.isRunning();
+        if (!nreplRunning) {
+          console.error(`Chrome not running on ${config.host}:${config.port}`);
+          console.error('Run: cjig launch');
+          process.exit(1);
+        }
+
+        await nreplConn.connect();
+
+        const nreplPort = values['nrepl-port'] ? parseInt(values['nrepl-port'], 10) : undefined;
+        await nrepl({ connection: nreplConn, port: nreplPort });
+
+        await nreplConn.disconnect();
         break;
       }
 

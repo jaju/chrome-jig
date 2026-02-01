@@ -7,3 +7,4 @@ package-lock.json
 # Local development
 .env
 .env.local
+.nrepl-port

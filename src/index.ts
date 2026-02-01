@@ -41,6 +41,11 @@ export { JsonRpcProtocol } from './session/jsonrpc-protocol.js';
 export { serve } from './commands/serve.js';
 export type { ServeOptions } from './commands/serve.js';
 
+// nREPL
+export { startNreplServer } from './nrepl/server.js';
+export type { NreplServerOptions, NreplServer } from './nrepl/server.js';
+export type { NreplMessage, NreplSession, NreplContext, OpHandler } from './nrepl/types.js';
+
 // Init & Skill
 export { installSkill, uninstallSkill } from './commands/install-skill.js';
 export { installNvim, uninstallNvim } from './commands/install-nvim.js';
