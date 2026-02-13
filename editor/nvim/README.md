@@ -63,16 +63,16 @@ Then remove the corresponding line from your Neovim config.
 
 ## Default Keymaps
 
-All under `<leader>c` (configurable via `opts.leader`):
+All under `<leader>b` (configurable via `opts.leader`):
 
 | Key | Mode | Action |
 |---|---|---|
-| `<leader>ce` | v | Eval selection |
-| `<leader>cf` | n | Eval form at cursor |
-| `<leader>ct` | n | List tabs |
-| `<leader>cr` | n | Reload tab |
-| `<leader>cc` | n | Connect |
-| `<leader>cd` | n | Disconnect |
+| `<leader>be` | v | Eval selection |
+| `<leader>bf` | n | Eval form at cursor |
+| `<leader>bt` | n | List tabs |
+| `<leader>br` | n | Reload tab |
+| `<leader>bc` | n | Connect |
+| `<leader>bd` | n | Disconnect |
 
 Disable with `require("cjig").setup({ keymaps = false })`.
 
@@ -81,7 +81,7 @@ Disable with `require("cjig").setup({ keymaps = false })`.
 ```lua
 require("cjig").setup({
   keymaps = true,       -- set false to skip default keymaps
-  leader = "<leader>c", -- keymap prefix
+  leader = "<leader>b", -- keymap prefix
 })
 ```
 
