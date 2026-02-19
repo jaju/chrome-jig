@@ -46,6 +46,7 @@ Technical architecture documentation for the chrome-jig project.
 | REPL          | `src/repl/repl.ts`         | Interactive shell engine, file watching                      |
 | REPL Commands | `src/repl/commands.ts`     | Dot-command implementations                                  |
 | Completer     | `src/repl/completer.ts`    | Tab completion for REPL                                      |
+| Eval File     | `src/commands/eval-file.ts`| File-based JS evaluation (reads file, delegates to evaluate) |
 | Commands      | `src/commands/*.ts`        | Individual CLI command implementations                       |
 | Cljs Compiler | `src/cljs/compiler.ts`     | squint-cljs compilation wrapper                              |
 | Cljs Runtime  | `src/cljs/runtime.ts`      | ESM→global rewrite, browser injection of squint core         |
@@ -76,7 +77,7 @@ stateDiagram-v2
 | `connect()`            | Establish CDP connection via Playwright           |
 | `disconnect()`         | Detach session, close connection (not browser)    |
 | `getPages()`           | List all pages in context                         |
-| `selectPage(pattern)`  | Select page by URL substring match                |
+| `selectPage(pattern)`  | Select page by URL or title substring match       |
 | `selectPageByIndex(n)` | Select page by numeric index                      |
 | `evaluate<T>(expr)`    | Run JavaScript, return result                     |
 | `injectScript(url)`    | Fetch + eval script in browser via CDP main world |

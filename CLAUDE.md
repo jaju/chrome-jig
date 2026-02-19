@@ -18,6 +18,8 @@ pnpm build
 cjig launch           # Start Chrome with debugging
 cjig tabs             # List open tabs
 cjig eval "document.title"  # One-shot JavaScript evaluation
+cjig eval --tab "GitHub" "document.title"  # Eval in specific tab
+cjig eval-file bundle.js   # Evaluate a file (bypasses CSP)
 cjig repl             # Interactive REPL
 cjig serve --stdio    # JSON-RPC 2.0 server over stdio
 cjig nrepl            # nREPL server for editor integration
@@ -45,6 +47,7 @@ chrome-jig/
 │   │   └── xdg.ts            # XDG Base Directory paths
 │   ├── commands/
 │   │   ├── eval.ts           # JavaScript evaluation
+│   │   ├── eval-file.ts      # File-based JavaScript evaluation
 │   │   ├── cljs-eval.ts      # ClojureScript evaluation (compile + eval)
 │   │   ├── inject.ts         # Script injection
 │   │   ├── init.ts           # Project config generation
@@ -175,6 +178,14 @@ cjig repl                     # Interactive testing
 - Standard Linux convention that works on macOS too
 - Separates config (editable), data (persistent), state (ephemeral)
 - Chrome profiles isolated from user's normal browser
+
+### Why withConnection
+
+The `withConnection` helper in `cli.ts` extracts the repeated connect → work → disconnect lifecycle shared by all connection-using commands. It handles optional `--tab` selection and `requireRunning` pre-checks, keeping each command case focused on its own logic. Errors throw (not `process.exit`) so the `finally` block always runs `disconnect()`.
+
+### Why --tab Instead of Persistent State
+
+Each CLI invocation is a fresh process. Rather than persisting tab selection to a file between invocations, the `--tab <selector>` flag selects a tab within the same process that executes the command. This is simpler, explicit, and avoids stale state bugs. Numbers select by index, strings search URL and title.
 
 ### Why Symlink for Skill
 
