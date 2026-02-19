@@ -12,6 +12,7 @@ export interface GlobalConfig {
     path?: string;
     flags?: string[];
   };
+  extensions?: string[];
 }
 
 export interface ScriptEntry {
@@ -35,6 +36,7 @@ export interface ProjectConfig {
     preBuild?: string;
     postInject?: string;
   };
+  extensions?: string[];
 }
 
 export interface ResolvedConfig {
@@ -43,6 +45,7 @@ export interface ResolvedConfig {
   host: string;
   chromePath?: string;
   chromeFlags: string[];
+  extensions: string[];
   scripts: {
     baseUrl?: string;
     registry: Record<string, ScriptEntry>;

@@ -13,6 +13,11 @@ import {
   DEFAULT_CHROME_FLAGS,
 } from './schema.js';
 import { resolveConfig as resolveEnvConfig, EnvConfig } from '../utils/env.js';
+import { loadProfileConfig } from './profiles.js';
+
+function deduplicateExtensions(paths: string[]): string[] {
+  return [...new Set(paths.filter(Boolean))];
+}
 
 const PROJECT_CONFIG_NAMES = [
   '.cjig.json',
@@ -59,6 +64,7 @@ export interface LoadConfigOptions {
   port?: number;
   profile?: string;
   host?: string;
+  extensions?: string[];
   projectConfigPath?: string;
 }
 
@@ -72,12 +78,24 @@ export function loadConfig(options: LoadConfigOptions = {}): ResolvedConfig {
   const profile = options.profile ?? envConfig.profile;
   const host = options.host ?? envConfig.host;
 
+  // Load profile config for active profile
+  const profileConfig = loadProfileConfig(profile);
+
+  // Extensions: CLI > project > profile > global, deduplicated
+  const extensions = deduplicateExtensions([
+    ...(options.extensions ?? []),
+    ...(projectConfig?.extensions ?? []),
+    ...(profileConfig?.extensions ?? []),
+    ...(globalConfig?.extensions ?? []),
+  ]);
+
   return {
     port,
     profile,
     host,
     chromePath: envConfig.chromePath ?? globalConfig?.chrome?.path,
     chromeFlags: globalConfig?.chrome?.flags ?? DEFAULT_CHROME_FLAGS,
+    extensions,
     scripts: {
       baseUrl: envConfig.scriptsBase ?? projectConfig?.scripts?.baseUrl,
       registry: projectConfig?.scripts?.registry ?? {},

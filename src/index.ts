@@ -10,8 +10,8 @@ export type { GlobalConfig, ProjectConfig, ScriptEntry, ResolvedConfig } from '.
 // Chrome
 export { ChromeConnection, createConnection } from './chrome/connection.js';
 export type { ChromeTarget, ConnectionOptions } from './chrome/connection.js';
-export { launchChrome, findChrome, isProfileLocked, isPortInUse, getStatus, loadSessionState } from './chrome/launcher.js';
-export type { LaunchOptions, LaunchResult } from './chrome/launcher.js';
+export { launchChrome, findChrome, isProfileLocked, isPortInUse, getStatus, loadSessionState, saveSessionState } from './chrome/launcher.js';
+export type { LaunchOptions, LaunchResult, SessionState } from './chrome/launcher.js';
 
 // Commands
 export { launch } from './commands/launch.js';
@@ -46,6 +46,16 @@ export type { ServeOptions } from './commands/serve.js';
 export { startNreplServer } from './nrepl/server.js';
 export type { NreplServerOptions, NreplServer } from './nrepl/server.js';
 export type { NreplMessage, NreplSession, NreplContext, OpHandler } from './nrepl/types.js';
+
+// Attach & Connection Info
+export { attach } from './commands/attach.js';
+export type { AttachResult } from './commands/attach.js';
+export { getConnectionInfo } from './commands/connection-info.js';
+export type { ConnectionInfo, ConnectionInfoResult } from './commands/connection-info.js';
+
+// Profiles
+export { listProfiles, loadProfileConfig, saveProfileConfig } from './config/profiles.js';
+export type { ProfileConfig, ProfileInfo } from './config/profiles.js';
 
 // Init & Skill
 export { installSkill, uninstallSkill } from './commands/install-skill.js';

@@ -5,7 +5,7 @@ A CLI tool for Chrome debugging with CDP (Chrome DevTools Protocol), script inje
 ## Project Identity
 
 - **Name**: chrome-jig
-- **Purpose**: Enable browser debugging, script injection, and live JavaScript evaluation from the command line
+- **Purpose**: CSP-proof JavaScript evaluation, script injection, Chrome lifecycle management (profiles, extensions, sessions), and interactive browser debugging from the command line
 - **Origin**: Extracted from KlipCeeper to serve as a standalone development tool for testing harnesses in browser contexts
 
 ## Quick Start
@@ -15,14 +15,18 @@ A CLI tool for Chrome debugging with CDP (Chrome DevTools Protocol), script inje
 pnpm build
 
 # Test locally (after pnpm link --global)
-cjig launch           # Start Chrome with debugging
-cjig tabs             # List open tabs
-cjig eval "document.title"  # One-shot JavaScript evaluation
+cjig launch                    # Start Chrome with debugging
+cjig launch --extensions dist/ # Launch with unpacked extension
+cjig attach --port 9333       # Attach to running Chrome
+cjig connection-info           # Export connection info (JSON)
+cjig tabs                      # List open tabs
+cjig eval "document.title"     # One-shot JavaScript evaluation
 cjig eval --tab "GitHub" "document.title"  # Eval in specific tab
-cjig eval-file bundle.js   # Evaluate a file (bypasses CSP)
-cjig repl             # Interactive REPL
-cjig serve --stdio    # JSON-RPC 2.0 server over stdio
-cjig nrepl            # nREPL server for editor integration
+cjig eval-file bundle.js       # Evaluate a file (bypasses CSP)
+cjig repl                      # Interactive REPL
+cjig profiles list             # List known profiles
+cjig serve --stdio             # JSON-RPC 2.0 server over stdio
+cjig nrepl                     # nREPL server for editor integration
 
 # Development
 pnpm dev -- <command>         # Run without building (via tsx)
@@ -43,9 +47,12 @@ chrome-jig/
 │   │   └── launcher.ts       # Chrome process management
 │   ├── config/
 │   │   ├── loader.ts         # Config discovery & merging
+│   │   ├── profiles.ts       # Profile config management
 │   │   ├── schema.ts         # TypeScript type definitions
 │   │   └── xdg.ts            # XDG Base Directory paths
 │   ├── commands/
+│   │   ├── attach.ts         # Attach to running Chrome
+│   │   ├── connection-info.ts # Connection info export
 │   │   ├── eval.ts           # JavaScript evaluation
 │   │   ├── eval-file.ts      # File-based JavaScript evaluation
 │   │   ├── cljs-eval.ts      # ClojureScript evaluation (compile + eval)
@@ -54,6 +61,7 @@ chrome-jig/
 │   │   ├── install-skill.ts  # Claude skill installation
 │   │   ├── launch.ts         # Chrome launcher command
 │   │   ├── nrepl.ts          # nREPL server command
+│   │   ├── profiles.ts       # Profile management commands
 │   │   ├── serve.ts          # JSON-RPC serve command
 │   │   ├── status.ts         # Chrome status check
 │   │   └── tabs.ts           # Tab listing/selection
@@ -109,11 +117,14 @@ Follows XDG Base Directory Specification for clean file organization:
 
 Priority (highest to lowest):
 
-1. CLI flags (`--port`, `--host`, `--profile`)
+1. CLI flags (`--port`, `--host`, `--profile`, `--extensions`)
 2. Environment variables (`CJIG_PORT`, etc.)
 3. Project config (`.cjig.json` in cwd or parents)
-4. Global config (`~/.config/cjig/config.json`)
-5. Built-in defaults
+4. Profile config (`~/.config/cjig/profiles/<name>.json`)
+5. Global config (`~/.config/cjig/config.json`)
+6. Built-in defaults
+
+For extensions specifically, all levels are **merged** (additive, deduplicated by path) rather than overridden.
 
 ### Script Registry
 
@@ -279,6 +290,15 @@ cjig tabs
 
 # Evaluate JavaScript
 cjig eval "document.title"
+
+# Connection info for Playwright handoff
+cjig connection-info --json
+
+# Attach to external Chrome
+cjig attach --port 9333
+
+# List profiles
+cjig profiles list
 
 # Check skill symlink
 ls -la ~/.claude/skills/chrome-jig

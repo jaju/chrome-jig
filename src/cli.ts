@@ -21,6 +21,9 @@ import { installNvim, uninstallNvim, printSetupSnippets } from './commands/insta
 import { interactiveInit, generateConfig, writeConfig } from './commands/init.js';
 import { serve } from './commands/serve.js';
 import { nrepl } from './commands/nrepl.js';
+import { attach } from './commands/attach.js';
+import { getConnectionInfo } from './commands/connection-info.js';
+import { listProfilesCommand, createProfileCommand } from './commands/profiles.js';
 
 const USAGE = `
 Chrome Jig - Browser debugging from the command line
@@ -30,7 +33,9 @@ Usage:
 
 Commands:
   launch              Launch Chrome with debugging enabled
+  attach              Attach to an already-running Chrome
   status              Check if Chrome is running
+  connection-info     Export connection info as JSON (for Playwright handoff)
   tabs                List open tabs
   tab <pattern>       Select a tab by URL/title pattern or index
   open <url>          Open a new tab
@@ -42,6 +47,8 @@ Commands:
   cljs-repl           Interactive REPL (ClojureScript)
   serve --stdio       JSON-RPC 2.0 server over stdio
   nrepl               nREPL server + interactive REPL
+  profiles list       List known profiles
+  profiles create     Create a named profile
   init                Generate project configuration
   config              Show resolved configuration
   env                 Print shell environment setup
@@ -55,8 +62,9 @@ Options:
   --port <port>       Chrome debugging port (default: 9222)
   --host <host>       Chrome host (default: localhost)
   --profile <name>    Chrome profile name (default: default)
+  --extensions <list> Comma-separated extension paths (launch)
   --tab <selector>    Select tab before executing (eval, eval-file, inject, cljs-eval)
-  --json              Output as JSON (eval/cljs-eval)
+  --json              Output as JSON (eval/cljs-eval/connection-info)
   --help, -h          Show help
 
 Tab selector:
@@ -64,10 +72,14 @@ Tab selector:
 
 Examples:
   cjig launch
+  cjig launch --extensions /path/to/ext
+  cjig attach --port 9333
+  cjig connection-info
   cjig tabs
   cjig eval "document.title"
   cjig eval --tab "GitHub" "document.title"
   cjig eval-file bundle.js
+  cjig profiles list
   cjig repl --port 9223
 `;
 
@@ -116,9 +128,11 @@ async function main() {
       port: { type: 'string', short: 'p' },
       host: { type: 'string', short: 'H' },
       profile: { type: 'string' },
+      extensions: { type: 'string', short: 'e' },
       tab: { type: 'string', short: 't' },
       json: { type: 'boolean' },
       stdio: { type: 'boolean' },
+      url: { type: 'string' },
       'nrepl-port': { type: 'string' },
       help: { type: 'boolean', short: 'h' },
     },
@@ -132,11 +146,17 @@ async function main() {
   const command = positionals[0];
   const args = positionals.slice(1);
 
+  // Parse CLI extensions (comma-separated)
+  const cliExtensions = values.extensions
+    ? values.extensions.split(',').map((s) => s.trim()).filter(Boolean)
+    : undefined;
+
   // Load configuration
   const config = loadConfig({
     port: values.port ? parseInt(values.port, 10) : undefined,
     host: values.host,
     profile: values.profile,
+    extensions: cliExtensions,
   });
 
   try {
@@ -144,12 +164,50 @@ async function main() {
       case 'launch': {
         const result = await launch(config, {
           profile: values.profile,
+          extensions: cliExtensions,
           url: args[0],
         });
 
         if (result.success) {
           console.log(`✓ ${result.message}`);
           console.log(`  PID: ${result.pid}`);
+        } else {
+          console.error(`✗ ${result.message}`);
+          process.exit(1);
+        }
+        break;
+      }
+
+      case 'attach': {
+        const result = await attach(config.host, config.port);
+
+        if (result.success) {
+          console.log(`✓ ${result.message}`);
+          if (result.browser) console.log(`  Browser: ${result.browser}`);
+          if (result.tabCount !== undefined) console.log(`  Tabs: ${result.tabCount}`);
+        } else {
+          console.error(`✗ ${result.message}`);
+          process.exit(1);
+        }
+        break;
+      }
+
+      case 'connection-info': {
+        const result = await getConnectionInfo(config.host, config.port);
+
+        if (result.success && result.info) {
+          if (values.json) {
+            console.log(JSON.stringify(result.info, null, 2));
+          } else {
+            console.log('\nConnection info:\n');
+            console.log(`  Endpoint: ${result.info.endpoint}`);
+            console.log(`  WebSocket: ${result.info.webSocketDebuggerUrl}`);
+            console.log(`  Source: ${result.info.source}`);
+            if (result.info.profile) {
+              console.log(`  Profile: ${result.info.profile}`);
+            }
+            console.log('');
+          }
         } else {
           console.error(`✗ ${result.message}`);
           process.exit(1);
@@ -364,6 +422,9 @@ async function main() {
         console.log(`  Profile: ${config.profile}`);
         console.log(`  Chrome: ${config.chromePath || '(auto-detect)'}`);
         console.log(`  Scripts base: ${config.scripts.baseUrl || '(none)'}`);
+        if (config.extensions.length > 0) {
+          console.log(`  Extensions: ${config.extensions.join(', ')}`);
+        }
 
         const scriptCount = Object.keys(config.scripts.registry).length;
         console.log(`  Scripts: ${scriptCount} registered`);
@@ -466,6 +527,51 @@ async function main() {
           }
         } else {
           console.error(`✗ ${nvimResult.message}`);
+          process.exit(1);
+        }
+        break;
+      }
+
+      case 'profiles': {
+        const subcommand = args[0];
+
+        if (!subcommand || subcommand === 'list') {
+          const result = listProfilesCommand();
+          if (result.profiles.length === 0) {
+            console.log('No profiles found');
+          } else {
+            console.log('\nProfiles:\n');
+            for (const p of result.profiles) {
+              const markers: string[] = [];
+              if (p.hasConfig) markers.push('config');
+              if (p.hasData) markers.push('data');
+              const suffix = markers.length > 0 ? ` (${markers.join(', ')})` : '';
+              console.log(`  ${p.name}${suffix}`);
+              if (p.extensions?.length) {
+                console.log(`    extensions: ${p.extensions.join(', ')}`);
+              }
+            }
+            console.log('');
+          }
+        } else if (subcommand === 'create') {
+          const name = args[1];
+          if (!name) {
+            console.error('Usage: cjig profiles create <name> [--extensions ...]');
+            process.exit(1);
+          }
+          const result = createProfileCommand(name, {
+            extensions: cliExtensions,
+            url: values.url,
+          });
+          if (result.success) {
+            console.log(`✓ ${result.message}`);
+          } else {
+            console.error(`✗ ${result.message}`);
+            process.exit(1);
+          }
+        } else {
+          console.error(`Unknown profiles subcommand: ${subcommand}`);
+          console.error('Usage: cjig profiles [list|create]');
           process.exit(1);
         }
         break;

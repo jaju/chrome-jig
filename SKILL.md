@@ -1,24 +1,46 @@
 # Chrome Jig — Claude Skill
 
-## Purpose
+## What Chrome Jig Is
 
-Drive harness development workflows in Chrome from the command line. Launch isolated Chrome sessions, inject scripts, evaluate JavaScript, and manage the full inject → exercise → modify → re-inject development loop.
+CSP-proof JavaScript evaluation and injection CLI. Interactive browser debugging. Chrome lifecycle manager (profiles, extensions, sessions).
 
-## Mental Model
+## What Chrome Jig Is NOT
 
-- **Session** = Chrome instance + profile + persisted state (cookies, localStorage, etc.)
-- **Harness** = named script from the project's script registry, injected into a page
-- **Lifecycle**: launch → navigate → inject → exercise → [modify → auto-reinject] → exercise
+Not a browser automation framework. Not a Playwright replacement. For scripted navigation, screenshots, DOM assertions, multi-page workflows — use Playwright directly.
 
-The project's `.cjig.json` is the source of truth. Read it first to understand what scripts are available, what build hooks exist, and what file paths are watched.
+## The Handoff Model
+
+- cjig manages Chrome (launch, profiles, extensions, attach)
+- cjig provides CSP-proof eval/injection (Runtime.evaluate via CDP)
+- Playwright provides automation (connectOverCDP to cjig's Chrome)
+- `cjig connection-info` bridges the two
+
+## When to Use cjig vs Playwright
+
+| Task | Use | Why |
+|------|-----|-----|
+| Eval JS on a page you don't own (CSP) | `cjig eval` | CDP Runtime.evaluate bypasses CSP |
+| Inject a library into a live page | `cjig inject` | Server-side fetch + CDP eval, bypasses CSP and CORS |
+| Evaluate a file on any page | `cjig eval-file` | CSP-proof file evaluation |
+| Interactive browser debugging | `cjig repl` | Persistent session, dot-commands |
+| Launch Chrome with extensions | `cjig launch --extensions` | Managed profiles, separate user-data-dir |
+| Connect to MCP browser Chrome | `cjig attach` | Records session state for other cjig commands |
+| Get connection details for Playwright | `cjig connection-info` | JSON output with endpoint and wsUrl |
+| Scripted multi-page automation | Playwright directly | Not cjig's purpose |
+| Screenshots, assertions, DOM queries | Playwright directly | Playwright's native strengths |
+| Extension service worker testing | Playwright `launchPersistentContext` | Requires Target.attachToTarget |
+
+## Before Using cjig for Automation
+
+If your task involves scripted navigation, clicking, form filling, or multi-step browser automation: skip cjig and use Playwright directly. cjig's value is in what Playwright can't easily do from the outside (CSP bypass, script registry, interactive REPL).
 
 ## How It Works: CDP Evaluation
 
-All evaluation uses CDP `Runtime.evaluate` — the same mechanism as the DevTools console. This means:
+All evaluation uses CDP `Runtime.evaluate` in the page's **main world** — the same context as the DevTools console:
 
-- **CSP bypass**: Both `eval` and `inject` work on any page regardless of Content-Security-Policy headers. There are no script tags involved.
+- **CSP bypass**: Both `eval` and `inject` work on any page regardless of Content-Security-Policy headers. No script tags involved.
 - **Globals persist**: Variables assigned via `globalThis.foo = ...` survive across calls and are visible to page scripts.
-- **`inject` fetches server-side**: `cjig inject` fetches the script URL in the Node.js process (bypassing CORS), then evaluates the content via CDP. It does not create `<script>` elements.
+- **`inject` fetches server-side**: `cjig inject` fetches the script URL in the Node.js process (bypassing CORS), then evaluates the content via CDP.
 
 ## Speed Principle
 
@@ -31,48 +53,19 @@ Prefer `cjig` CLI commands over Chrome DevTools MCP tools whenever possible:
 
 **Fall back to Chrome DevTools MCP** only for capabilities the CLI lacks: screenshots, performance traces, network inspection, DOM snapshots, and visual page interaction.
 
-## When to Use What
-
-| Need | Tool | Why |
-|------|------|-----|
-| One expression, current tab | `cjig eval "expr"` | One-shot, fast |
-| One expression, specific tab | `cjig eval --tab <sel> "expr"` | Tab targeting in one process |
-| Inject a file into any page | `cjig eval-file bundle.js` | CSP-proof file evaluation |
-| Inject a named harness | `cjig inject <name>` | Registry lookup + CSP-proof inject |
-| Multi-step exploration | `cjig repl` | Persistent session, dot-commands |
-| Live dev with file watching | `cjig repl` then `.watch on` | Auto re-inject on file save |
-| Multi-page scripted automation | Playwright | Not cjig's purpose |
-
-Each CLI invocation is a **fresh process** — tab state does not persist between invocations. Use `--tab` to target a specific tab per command, or use the REPL for persistent sessions.
-
 ## Session Management
-
-- `cjig status` — check if Chrome is running
-- `cjig launch` — start Chrome with default profile
-- `cjig launch --profile=testing` — start with a named profile
-- Profiles are isolated from the user's normal browser
-- State persists across runs in `~/.local/share/cjig/chrome-profiles/`
-- Session metadata stored at `~/.local/state/cjig/`
-
-## Harness Workflow
-
-1. **Read project config**: check `.cjig.json` in the project root for `scripts.registry`
-2. **Launch Chrome** if not running: `cjig launch`
-3. **Navigate** to the target page: `cjig eval "location.href = 'http://...'"`
-4. **Inject harness** by name: `cjig inject <name>`
-5. **Exercise** via eval using `windowApi` or `alias` from the registry: `cjig eval "BS.overlayOn()"`
-6. **For iterative development**, suggest `.watch on` in the REPL for live reload on file save
-
-## Command Reference
-
-### Session
 
 | Command | Description |
 |---|---|
-| `cjig launch [--profile=NAME]` | Launch Chrome with debugging enabled |
+| `cjig launch` | Launch Chrome with default profile |
+| `cjig launch --profile=NAME` | Launch with named profile |
+| `cjig launch --extensions /path/to/ext` | Launch with unpacked extension |
+| `cjig attach --port 9333` | Attach to already-running Chrome |
 | `cjig status` | Check if Chrome is running |
+| `cjig connection-info` | Export connection info as JSON |
+| `cjig connection-info --json` | Machine-readable JSON output |
 
-### Tab Targeting
+## Tab Targeting
 
 | Command | Description |
 |---|---|
@@ -83,7 +76,7 @@ Each CLI invocation is a **fresh process** — tab state does not persist betwee
 
 Tab selector: numbers select by index (0, 1, 2...), strings search URL and title.
 
-### Evaluation
+## Evaluation
 
 | Command | Description |
 |---|---|
@@ -94,14 +87,24 @@ Tab selector: numbers select by index (0, 1, 2...), strings search URL and title
 | `cjig cljs-eval <code>` | Compile ClojureScript and evaluate |
 | `cjig repl` | Start interactive REPL |
 
-### Harness
+## Harness
 
 | Command | Description |
 |---|---|
 | `cjig inject <name\|url>` | Inject a script by registry name or URL |
 | `cjig inject --tab <sel> <name>` | Inject into a specific tab |
 
-### Configuration
+## Profiles
+
+| Command | Description |
+|---|---|
+| `cjig profiles list` | List known profiles |
+| `cjig profiles create <name> --extensions ...` | Create a named profile with extensions |
+| `cjig launch --profile=NAME` | Launch with profile's saved config |
+
+Profiles remember extensions, flags, and default URL. Config stored at `~/.config/cjig/profiles/<name>.json`.
+
+## Configuration
 
 | Command | Description |
 |---|---|
@@ -110,6 +113,26 @@ Tab selector: numbers select by index (0, 1, 2...), strings search URL and title
 | `cjig env` | Print shell aliases and exports |
 | `cjig install-skill` | Symlink skill to `~/.claude/skills/` |
 | `cjig uninstall-skill` | Remove skill symlink |
+
+## Connecting Playwright to cjig's Chrome
+
+```js
+import { getConnectionInfo } from 'chrome-jig';
+import { chromium } from 'playwright';
+
+const { info } = await getConnectionInfo('localhost', 9222);
+const browser = await chromium.connectOverCDP(info.endpoint);
+```
+
+Or from the command line:
+
+```bash
+# Get the endpoint
+cjig connection-info --json | jq -r '.endpoint'
+
+# Use with Playwright MCP
+# Configure --cdp-endpoint to point at cjig's Chrome port
+```
 
 ## Reading Project Config
 
@@ -128,29 +151,37 @@ The `.cjig.json` file defines the development environment:
       }
     }
   },
+  "extensions": ["/path/to/unpacked-extension"],
   "watch": {
     "paths": ["dist/harnesses/*.js"],
     "debounce": 300
-  },
-  "hooks": {
-    "preBuild": "pnpm build:harnesses"
   }
 }
 ```
 
 Key fields:
 
+- `extensions` — unpacked extension paths to load on launch
 - `scripts.registry[name].path` — script filename, resolved against `scripts.baseUrl`
-- `scripts.registry[name].windowApi` — the global object the script exposes (e.g., `window.BlockSegmenter`)
-- `scripts.registry[name].alias` — short name for the API (e.g., `BS`)
+- `scripts.registry[name].windowApi` — the global object the script exposes
+- `scripts.registry[name].alias` — short name for the API
 - `scripts.registry[name].quickStart` — example expression to try after injection
 - `watch.paths` — glob patterns for auto-reinject on file change
-- `hooks.preBuild` — build command run before injection
+
+## Harness Workflow
+
+1. **Read project config**: check `.cjig.json` in the project root for `scripts.registry`
+2. **Launch Chrome** if not running: `cjig launch`
+3. **Navigate** to the target page: `cjig eval "location.href = 'http://...'"`
+4. **Inject harness** by name: `cjig inject <name>`
+5. **Exercise** via eval using `windowApi` or `alias` from the registry
+6. **For iterative development**, suggest `.watch on` in the REPL for live reload
 
 ## Limitations
 
-- Each `cjig` CLI invocation is a **fresh process**. Tab state does not persist between invocations. Use `--tab` to target a specific tab, or use `cjig repl` for a persistent session.
-- cjig is a **debugging and development tool**, not a browser automation framework. For scripted multi-page workflows across N URLs, use Playwright directly.
+- **Main world only**: All evaluation runs in the page's main world. No isolated world or extension service worker eval.
+- **Fresh process per invocation**: Tab state does not persist between CLI calls. Use `--tab` to target, or `cjig repl` for a persistent session.
+- **Not a browser automation framework**: For scripted multi-page workflows, use Playwright directly.
 - The REPL and nREPL share a single connection. Tab switches in the REPL (`.tab`) affect nREPL evaluations too.
 
 ## Anti-Patterns
@@ -160,3 +191,4 @@ Key fields:
 - Do not forget to check `cjig status` before attempting to connect
 - Do not skip reading `.cjig.json` — it tells you what harnesses exist and how to use them
 - Do not chain separate `cjig tab` + `cjig eval` invocations expecting tab state to persist — use `cjig eval --tab` instead
+- Do not use cjig for scripted automation — use Playwright and connect it to cjig's Chrome via `connection-info`

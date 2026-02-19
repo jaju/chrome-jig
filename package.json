@@ -1,6 +1,6 @@
 {
   "name": "chrome-jig",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Chrome debugging REPL with CDP, script injection, and Claude skill support",
   "type": "module",
   "main": "dist/index.js",
@@ -30,11 +30,11 @@
   "dependencies": {
     "bencode": "^4.0.0",
     "chokidar": "^5.0.0",
-    "playwright-core": "^1.58.1",
+    "playwright-core": "^1.58.2",
     "squint-cljs": "^0.10.185"
   },
   "devDependencies": {
-    "@types/node": "^25.1.0",
+    "@types/node": "^25.3.0",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18"

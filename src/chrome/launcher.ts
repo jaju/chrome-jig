@@ -14,6 +14,7 @@ export interface LaunchOptions {
   profile: string;
   chromePath?: string;
   chromeFlags?: string[];
+  extensions?: string[];
   url?: string;
 }
 
@@ -25,10 +26,12 @@ export interface LaunchResult {
   profile?: string;
 }
 
-interface SessionState {
+export interface SessionState {
   pid?: number;
   port: number;
+  host: string;
   profile: string;
+  source: 'launched' | 'attached';
   startedAt: string;
 }
 
@@ -114,7 +117,7 @@ export async function isPortInUse(port: number, host: string = 'localhost'): Pro
 /**
  * Save session state for later recovery
  */
-function saveSessionState(state: SessionState): void {
+export function saveSessionState(state: SessionState): void {
   const statePath = getSessionStatePath();
   const stateDir = dirname(statePath);
 
@@ -147,7 +150,7 @@ export function loadSessionState(): SessionState | null {
  * Launch Chrome with debugging enabled
  */
 export async function launchChrome(options: LaunchOptions): Promise<LaunchResult> {
-  const { port, profile, chromeFlags = DEFAULT_CHROME_FLAGS, url } = options;
+  const { port, profile, chromeFlags = DEFAULT_CHROME_FLAGS, extensions = [], url } = options;
 
   // Find Chrome executable
   const chromePath = options.chromePath ?? findChrome();
@@ -203,6 +206,12 @@ export async function launchChrome(options: LaunchOptions): Promise<LaunchResult
     ...chromeFlags,
   ];
 
+  if (extensions.length > 0) {
+    const extList = extensions.join(',');
+    args.push(`--load-extension=${extList}`);
+    args.push(`--disable-extensions-except=${extList}`);
+  }
+
   if (url) {
     args.push(url);
   }
@@ -240,7 +249,9 @@ export async function launchChrome(options: LaunchOptions): Promise<LaunchResult
   saveSessionState({
     pid: child.pid,
     port,
+    host: 'localhost',
     profile,
+    source: 'launched',
     startedAt: new Date().toISOString(),
   });
 

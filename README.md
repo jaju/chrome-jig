@@ -8,6 +8,8 @@ The DevTools console, from your terminal and editor.
 
 **Named script injection with auto-reload.** Register scripts in `.cjig.json`, inject by name, watch files for changes, auto re-inject. The modify → re-inject → exercise loop without leaving your editor.
 
+**Chrome lifecycle management.** Launch Chrome with isolated profiles, load unpacked extensions, attach to running instances. `cjig connection-info` exports connection details so Playwright scripts (or MCP browser tools) can connect to the same Chrome.
+
 **Editor-native via nREPL.** Evaluate ClojureScript from Neovim/Conjure buffers directly in the browser. No browser tab switching, no copy-paste.
 
 **Independent developer workflow.** The CLI is usable without any LLM. `cjig launch && cjig inject my-script && cjig repl` is a complete development loop with no AI in the path.
@@ -44,6 +46,45 @@ cjig eval-file bundle.js
 cjig repl
 ```
 
+## Working with MCP Tools
+
+cjig and MCP browser tools complement each other — both connect to Chrome via CDP on the same port.
+
+**cjig manages Chrome, MCP provides automation:**
+
+```bash
+# cjig launches Chrome with extensions and a debug port
+cjig launch --extensions ./my-extension/dist
+
+# Playwright MCP connects to the same Chrome
+# In your MCP client config:
+```
+
+```json
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["@playwright/mcp@latest", "--cdp-endpoint", "http://localhost:9222"]
+    }
+  }
+}
+```
+
+**If MCP already launched Chrome**, attach to it:
+
+```bash
+cjig attach --port 9222
+cjig eval "document.title"    # Now cjig commands work against MCP's Chrome
+```
+
+**Export connection info** for scripts:
+
+```bash
+cjig connection-info --json
+# {"host":"localhost","port":9222,"endpoint":"http://localhost:9222","webSocketDebuggerUrl":"ws://...","source":"launched","profile":"default"}
+```
+
 ## How It Works
 
 All evaluation uses CDP `Runtime.evaluate` in the page's **main world** — the same context as the DevTools console:
@@ -59,10 +100,13 @@ Each CLI invocation is a **fresh process**. Tab state does not persist between i
 ### Chrome Management
 
 ```bash
-cjig launch                    # Launch with default profile
-cjig launch --profile=testing  # Named profile
-cjig status                    # Check if Chrome is running
-cjig status --host=192.168.1.5 # Check remote Chrome
+cjig launch                           # Launch with default profile
+cjig launch --profile=testing         # Named profile
+cjig launch --extensions /path/to/ext # Load unpacked extension
+cjig attach --port 9333               # Attach to running Chrome
+cjig status                           # Check if Chrome is running
+cjig connection-info                  # Show connection details
+cjig connection-info --json           # JSON output for scripts
 ```
 
 ### Tab Operations
@@ -113,6 +157,45 @@ Editors discover the port via `.nrepl-port` written to the current directory.
 
 The REPL and nREPL share a single connection. Tab switches in the REPL (`.tab`) take effect for nREPL evaluations too — no reconnection needed.
 
+### Profiles
+
+```bash
+cjig profiles list                                # List known profiles
+cjig profiles create myext --extensions /path/ext  # Create profile with extensions
+cjig launch --profile=myext                        # Launch with profile config
+```
+
+Profile configs live at `~/.config/cjig/profiles/<name>.json` and remember extensions, flags, and default URL. Login sessions persist across launches in the profile's Chrome user-data directory.
+
+### Extension Loading
+
+```bash
+# Via CLI flag
+cjig launch --extensions /path/to/unpacked-extension
+
+# Via project config (.cjig.json)
+{
+  "extensions": ["/path/to/unpacked-extension"]
+}
+
+# Via profile config
+cjig profiles create dev --extensions /path/to/ext
+cjig launch --profile=dev
+```
+
+Extensions from CLI flags, project config, profile config, and global config are merged (deduplicated by path).
+
+## Connecting from Playwright Scripts
+
+```js
+import { getConnectionInfo } from 'chrome-jig';
+import { chromium } from 'playwright';
+
+const { info } = await getConnectionInfo('localhost', 9222);
+const browser = await chromium.connectOverCDP(info.endpoint);
+// Now use Playwright's full API against cjig-managed Chrome
+```
+
 ## REPL Commands
 
 ```
@@ -144,7 +227,8 @@ The REPL and nREPL share a single connection. Tab switches in the REPL (`.tab`) 
   "chrome": {
     "path": "/path/to/chrome",
     "flags": ["--disable-background-timer-throttling"]
-  }
+  },
+  "extensions": ["/path/to/global-extension"]
 }
 ```
 
@@ -164,6 +248,7 @@ The REPL and nREPL share a single connection. Tab switches in the REPL (`.tab`) 
       }
     }
   },
+  "extensions": ["/path/to/project-extension"],
   "watch": {
     "paths": ["dist/harnesses/*.js"],
     "debounce": 300
@@ -173,6 +258,18 @@ The REPL and nREPL share a single connection. Tab switches in the REPL (`.tab`) 
   }
 }
 ```
+
+### Profile Config (`~/.config/cjig/profiles/<name>.json`)
+
+```json
+{
+  "extensions": ["/path/to/extension"],
+  "flags": ["--auto-open-devtools-for-tabs"],
+  "url": "http://localhost:3000"
+}
+```
+
+Extension merge priority: CLI flags > project config > profile config > global config.
 
 ## Environment Variables
 
@@ -210,11 +307,13 @@ Then Claude can use it via the SKILL.md instructions.
 ```
 ~/.config/cjig/
 ├── config.json           # Global config
-└── profiles/             # Named config profiles
+└── profiles/             # Named profile configs
+    └── myext.json
 
 ~/.local/share/cjig/
 └── chrome-profiles/      # Chrome user-data dirs
-    └── default/
+    ├── default/
+    └── myext/
 
 ~/.local/state/cjig/
 └── last-session.json     # Session state
