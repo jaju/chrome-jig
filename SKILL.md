@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Drive harness development workflows in Chrome from the command line. This skill lets you launch isolated Chrome sessions, inject named scripts, evaluate JavaScript, and manage the full inject → exercise → modify → re-inject development loop.
+Drive harness development workflows in Chrome from the command line. Launch isolated Chrome sessions, inject scripts, evaluate JavaScript, and manage the full inject → exercise → modify → re-inject development loop.
 
 ## Mental Model
 
@@ -12,16 +12,38 @@ Drive harness development workflows in Chrome from the command line. This skill 
 
 The project's `.cjig.json` is the source of truth. Read it first to understand what scripts are available, what build hooks exist, and what file paths are watched.
 
+## How It Works: CDP Evaluation
+
+All evaluation uses CDP `Runtime.evaluate` — the same mechanism as the DevTools console. This means:
+
+- **CSP bypass**: Both `eval` and `inject` work on any page regardless of Content-Security-Policy headers. There are no script tags involved.
+- **Globals persist**: Variables assigned via `globalThis.foo = ...` survive across calls and are visible to page scripts.
+- **`inject` fetches server-side**: `cjig inject` fetches the script URL in the Node.js process (bypassing CORS), then evaluates the content via CDP. It does not create `<script>` elements.
+
 ## Speed Principle
 
 Prefer `cjig` CLI commands over Chrome DevTools MCP tools whenever possible:
 
-- `cjig eval "expr"` = direct, instant, no LLM round-trip
+- `cjig eval "expr"` = direct CDP call, no LLM round-trip
 - MCP browser tools = each action round-trips through the LLM
 
 **Rule**: Use `cjig` for eval, inject, tabs, launch, and status.
 
 **Fall back to Chrome DevTools MCP** only for capabilities the CLI lacks: screenshots, performance traces, network inspection, DOM snapshots, and visual page interaction.
+
+## When to Use What
+
+| Need | Tool | Why |
+|------|------|-----|
+| One expression, current tab | `cjig eval "expr"` | One-shot, fast |
+| One expression, specific tab | `cjig eval --tab <sel> "expr"` | Tab targeting in one process |
+| Inject a file into any page | `cjig eval-file bundle.js` | CSP-proof file evaluation |
+| Inject a named harness | `cjig inject <name>` | Registry lookup + CSP-proof inject |
+| Multi-step exploration | `cjig repl` | Persistent session, dot-commands |
+| Live dev with file watching | `cjig repl` then `.watch on` | Auto re-inject on file save |
+| Multi-page scripted automation | Playwright | Not cjig's purpose |
+
+Each CLI invocation is a **fresh process** — tab state does not persist between invocations. Use `--tab` to target a specific tab per command, or use the REPL for persistent sessions.
 
 ## Session Management
 
@@ -50,22 +72,34 @@ Prefer `cjig` CLI commands over Chrome DevTools MCP tools whenever possible:
 | `cjig launch [--profile=NAME]` | Launch Chrome with debugging enabled |
 | `cjig status` | Check if Chrome is running |
 
-### Navigation
+### Tab Targeting
 
 | Command | Description |
 |---|---|
-| `cjig tabs` | List open tabs |
-| `cjig tab <pattern\|index>` | Switch to a tab |
+| `cjig tabs` | List open tabs (index + title + URL) |
+| `cjig tab <pattern\|index>` | Switch to a tab by title/URL pattern or index |
 | `cjig open <url>` | Open a new tab |
+| `--tab <selector>` | Flag for eval, eval-file, inject, cljs-eval |
+
+Tab selector: numbers select by index (0, 1, 2...), strings search URL and title.
+
+### Evaluation
+
+| Command | Description |
+|---|---|
+| `cjig eval <expression>` | Evaluate JavaScript in the current tab |
+| `cjig eval --tab <sel> <expression>` | Evaluate in a specific tab |
+| `cjig eval-file <path\|->` | Evaluate a JavaScript file (- for stdin) |
+| `cjig eval-file --tab <sel> <path>` | Evaluate a file in a specific tab |
+| `cjig cljs-eval <code>` | Compile ClojureScript and evaluate |
+| `cjig repl` | Start interactive REPL |
 
 ### Harness
 
 | Command | Description |
 |---|---|
 | `cjig inject <name\|url>` | Inject a script by registry name or URL |
-| `cjig eval <expression>` | Evaluate JavaScript in the current tab |
-| `cjig cljs-eval <code>` | Compile ClojureScript and evaluate in the current tab |
-| `cjig repl` | Start interactive REPL |
+| `cjig inject --tab <sel> <name>` | Inject into a specific tab |
 
 ### Configuration
 
@@ -113,11 +147,11 @@ Key fields:
 - `watch.paths` — glob patterns for auto-reinject on file change
 - `hooks.preBuild` — build command run before injection
 
-## When to Suggest REPL vs eval
+## Limitations
 
-- **REPL** (`cjig repl`): when the user needs interactive exploration, or wants `.watch on` for live reload during development
-- **eval** (`cjig eval "..."`): for automated actions — fast, scriptable, one-shot
-- REPL dot-commands (`.inject`, `.watch`, `.tabs`, `.build`, `.reload`) are for human interactive use
+- Each `cjig` CLI invocation is a **fresh process**. Tab state does not persist between invocations. Use `--tab` to target a specific tab, or use `cjig repl` for a persistent session.
+- cjig is a **debugging and development tool**, not a browser automation framework. For scripted multi-page workflows across N URLs, use Playwright directly.
+- The REPL and nREPL share a single connection. Tab switches in the REPL (`.tab`) affect nREPL evaluations too.
 
 ## Anti-Patterns
 
@@ -125,3 +159,4 @@ Key fields:
 - Do not suggest manual URL injection when a script is registered by name in the project config
 - Do not forget to check `cjig status` before attempting to connect
 - Do not skip reading `.cjig.json` — it tells you what harnesses exist and how to use them
+- Do not chain separate `cjig tab` + `cjig eval` invocations expecting tab state to persist — use `cjig eval --tab` instead
