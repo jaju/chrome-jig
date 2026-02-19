@@ -126,17 +126,19 @@ export class ChromeConnection {
   }
 
   /**
-   * Select a page by URL pattern
+   * Select a page by URL or title substring match (case-insensitive).
    */
-  async selectPage(urlPattern: string): Promise<Page | null> {
+  async selectPage(pattern: string): Promise<Page | null> {
     const pages = await this.getPages();
-    const pattern = urlPattern.toLowerCase();
+    const needle = pattern.toLowerCase();
 
-    const page = pages.find((p) => p.url().toLowerCase().includes(pattern));
-
-    if (page) {
-      this.setCurrentPage(page);
-      return page;
+    for (const page of pages) {
+      const url = page.url().toLowerCase();
+      const title = (await page.title()).toLowerCase();
+      if (url.includes(needle) || title.includes(needle)) {
+        this.setCurrentPage(page);
+        return page;
+      }
     }
 
     return null;
