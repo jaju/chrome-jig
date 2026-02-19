@@ -6,7 +6,8 @@
 
 import { parseArgs } from 'node:util';
 import { loadConfig } from './config/loader.js';
-import { createConnection } from './chrome/connection.js';
+import { ChromeConnection, createConnection } from './chrome/connection.js';
+import { ResolvedConfig } from './config/schema.js';
 import { Repl } from './repl/repl.js';
 import { launch } from './commands/launch.js';
 import { status } from './commands/status.js';
@@ -30,10 +31,11 @@ Commands:
   launch              Launch Chrome with debugging enabled
   status              Check if Chrome is running
   tabs                List open tabs
-  tab <pattern>       Select a tab by URL pattern or index
+  tab <pattern>       Select a tab by URL/title pattern or index
   open <url>          Open a new tab
   inject <name|url>   Inject a script
   eval <expression>   Evaluate JavaScript
+  eval-file <path|->  Evaluate a JavaScript file (- for stdin)
   cljs-eval <code>    Evaluate ClojureScript
   repl                Interactive REPL (JavaScript)
   cljs-repl           Interactive REPL (ClojureScript)
@@ -52,15 +54,59 @@ Options:
   --port <port>       Chrome debugging port (default: 9222)
   --host <host>       Chrome host (default: localhost)
   --profile <name>    Chrome profile name (default: default)
+  --tab <selector>    Select tab before executing (eval, eval-file, inject, cljs-eval)
   --json              Output as JSON (eval/cljs-eval)
   --help, -h          Show help
+
+Tab selector:
+  Numbers select by index (0, 1, 2...), strings search URL and title.
 
 Examples:
   cjig launch
   cjig tabs
   cjig eval "document.title"
+  cjig eval --tab "GitHub" "document.title"
+  cjig eval-file bundle.js
   cjig repl --port 9223
 `;
+
+// --- Connection lifecycle helper ---
+
+interface RunOptions {
+  config: ResolvedConfig;
+  tab?: string;
+  requireRunning?: boolean;
+}
+
+async function withConnection<T>(
+  options: RunOptions,
+  work: (connection: ChromeConnection) => Promise<T>,
+): Promise<T> {
+  const { config } = options;
+  const connection = createConnection({ host: config.host, port: config.port });
+
+  if (options.requireRunning) {
+    const running = await connection.isRunning();
+    if (!running) {
+      throw new Error(
+        `Chrome not running on ${config.host}:${config.port}\nRun: cjig launch`,
+      );
+    }
+  }
+
+  await connection.connect();
+  try {
+    if (options.tab) {
+      const tab = await selectTab(connection, options.tab);
+      if (!tab) throw new Error(`No tab matching: ${options.tab}`);
+    }
+    return await work(connection);
+  } finally {
+    await connection.disconnect();
+  }
+}
+
+// --- Main ---
 
 async function main() {
   const { values, positionals } = parseArgs({
@@ -69,6 +115,7 @@ async function main() {
       port: { type: 'string', short: 'p' },
       host: { type: 'string', short: 'H' },
       profile: { type: 'string' },
+      tab: { type: 'string', short: 't' },
       json: { type: 'boolean' },
       stdio: { type: 'boolean' },
       'nrepl-port': { type: 'string' },
@@ -131,23 +178,20 @@ async function main() {
       }
 
       case 'tabs': {
-        const connection = createConnection({ host: config.host, port: config.port });
-        await connection.connect();
+        await withConnection({ config }, async (connection) => {
+          const tabs = await listTabs(connection);
 
-        const tabs = await listTabs(connection);
-
-        if (tabs.length === 0) {
-          console.log('No tabs open');
-        } else {
-          console.log('\nOpen tabs:\n');
-          for (const tab of tabs) {
-            const marker = tab.isCurrent ? '→' : ' ';
-            console.log(`${marker} [${tab.index}] ${tab.title}`);
-            console.log(`      ${tab.url}\n`);
+          if (tabs.length === 0) {
+            console.log('No tabs open');
+          } else {
+            console.log('\nOpen tabs:\n');
+            for (const tab of tabs) {
+              const marker = tab.isCurrent ? '→' : ' ';
+              console.log(`${marker} [${tab.index}] ${tab.title}`);
+              console.log(`      ${tab.url}\n`);
+            }
           }
-        }
-
-        await connection.disconnect();
+        });
         break;
       }
 
@@ -157,20 +201,16 @@ async function main() {
           process.exit(1);
         }
 
-        const connection = createConnection({ host: config.host, port: config.port });
-        await connection.connect();
+        await withConnection({ config }, async (connection) => {
+          const tab = await selectTab(connection, args[0]);
 
-        const tab = await selectTab(connection, args[0]);
-
-        if (tab) {
-          console.log(`Switched to: ${tab.title}`);
-          console.log(`  ${tab.url}`);
-        } else {
-          console.error(`No tab matching: ${args[0]}`);
-          process.exit(1);
-        }
-
-        await connection.disconnect();
+          if (tab) {
+            console.log(`Switched to: ${tab.title}`);
+            console.log(`  ${tab.url}`);
+          } else {
+            throw new Error(`No tab matching: ${args[0]}`);
+          }
+        });
         break;
       }
 
@@ -180,14 +220,11 @@ async function main() {
           process.exit(1);
         }
 
-        const connection = createConnection({ host: config.host, port: config.port });
-        await connection.connect();
-
-        const page = await connection.openPage(args[0]);
-        const title = await page.title();
-        console.log(`Opened: ${title || args[0]}`);
-
-        await connection.disconnect();
+        await withConnection({ config }, async (connection) => {
+          const page = await connection.openPage(args[0]);
+          const title = await page.title();
+          console.log(`Opened: ${title || args[0]}`);
+        });
         break;
       }
 
@@ -202,25 +239,21 @@ async function main() {
           process.exit(1);
         }
 
-        const connection = createConnection({ host: config.host, port: config.port });
-        await connection.connect();
+        await withConnection({ config, tab: values.tab }, async (connection) => {
+          const result = await inject(connection, config, args[0]);
 
-        const result = await inject(connection, config, args[0]);
-
-        if (result.success) {
-          console.log(`✓ Injected: ${result.url}`);
-          if (result.windowApi) {
-            console.log(`  API: window.${result.windowApi}`);
+          if (result.success) {
+            console.log(`✓ Injected: ${result.url}`);
+            if (result.windowApi) {
+              console.log(`  API: window.${result.windowApi}`);
+            }
+            if (result.quickStart) {
+              console.log(`  Try: ${result.quickStart}`);
+            }
+          } else {
+            throw new Error(result.error ?? 'Injection failed');
           }
-          if (result.quickStart) {
-            console.log(`  Try: ${result.quickStart}`);
-          }
-        } else {
-          console.error(`✗ ${result.error}`);
-          process.exit(1);
-        }
-
-        await connection.disconnect();
+        });
         break;
       }
 
@@ -231,21 +264,17 @@ async function main() {
         }
 
         const expression = args.join(' ');
-        const connection = createConnection({ host: config.host, port: config.port });
-        await connection.connect();
+        await withConnection({ config, tab: values.tab }, async (connection) => {
+          const result = await evaluate(connection, expression);
 
-        const result = await evaluate(connection, expression);
-
-        if (values.json) {
-          console.log(formatJson(result));
-        } else if (result.success) {
-          console.log(formatValue(result.value));
-        } else {
-          console.error(`Error: ${result.error}`);
-          process.exit(1);
-        }
-
-        await connection.disconnect();
+          if (values.json) {
+            console.log(formatJson(result));
+          } else if (result.success) {
+            console.log(formatValue(result.value));
+          } else {
+            throw new Error(result.error);
+          }
+        });
         break;
       }
 
@@ -256,59 +285,33 @@ async function main() {
         }
 
         const cljsSource = args.join(' ');
-        const cljsConnection = createConnection({ host: config.host, port: config.port });
-        await cljsConnection.connect();
+        await withConnection({ config, tab: values.tab }, async (connection) => {
+          const result = await evaluateCljs(connection, cljsSource);
 
-        const cljsResult = await evaluateCljs(cljsConnection, cljsSource);
-
-        if (values.json) {
-          console.log(formatJson(cljsResult));
-        } else if (cljsResult.success) {
-          console.log(formatValue(cljsResult.value));
-        } else {
-          console.error(`Error: ${cljsResult.error}`);
-          process.exit(1);
-        }
-
-        await cljsConnection.disconnect();
+          if (values.json) {
+            console.log(formatJson(result));
+          } else if (result.success) {
+            console.log(formatValue(result.value));
+          } else {
+            throw new Error(result.error);
+          }
+        });
         break;
       }
 
       case 'repl': {
-        const connection = createConnection({ host: config.host, port: config.port });
-
-        const running = await connection.isRunning();
-        if (!running) {
-          console.error(`Chrome not running on ${config.host}:${config.port}`);
-          console.error('Run: cjig launch');
-          process.exit(1);
-        }
-
-        await connection.connect();
-
-        const repl = new Repl({ connection, config });
-        await repl.start();
-
-        await connection.disconnect();
+        await withConnection({ config, requireRunning: true }, async (connection) => {
+          const repl = new Repl({ connection, config });
+          await repl.start();
+        });
         break;
       }
 
       case 'cljs-repl': {
-        const cljsReplConn = createConnection({ host: config.host, port: config.port });
-
-        const cljsReplRunning = await cljsReplConn.isRunning();
-        if (!cljsReplRunning) {
-          console.error(`Chrome not running on ${config.host}:${config.port}`);
-          console.error('Run: cjig launch');
-          process.exit(1);
-        }
-
-        await cljsReplConn.connect();
-
-        const cljsRepl = new Repl({ connection: cljsReplConn, config, lang: 'cljs' });
-        await cljsRepl.start();
-
-        await cljsReplConn.disconnect();
+        await withConnection({ config, requireRunning: true }, async (connection) => {
+          const repl = new Repl({ connection, config, lang: 'cljs' });
+          await repl.start();
+        });
         break;
       }
 
@@ -319,37 +322,17 @@ async function main() {
           process.exit(1);
         }
 
-        const serveConn = createConnection({ host: config.host, port: config.port });
-
-        const serveRunning = await serveConn.isRunning();
-        if (!serveRunning) {
-          console.error(`Chrome not running on ${config.host}:${config.port}`);
-          console.error('Run: cjig launch');
-          process.exit(1);
-        }
-
-        await serveConn.connect();
-        await serve({ connection: serveConn, config });
-        await serveConn.disconnect();
+        await withConnection({ config, requireRunning: true }, async (connection) => {
+          await serve({ connection, config });
+        });
         break;
       }
 
       case 'nrepl': {
-        const nreplConn = createConnection({ host: config.host, port: config.port });
-
-        const nreplRunning = await nreplConn.isRunning();
-        if (!nreplRunning) {
-          console.error(`Chrome not running on ${config.host}:${config.port}`);
-          console.error('Run: cjig launch');
-          process.exit(1);
-        }
-
-        await nreplConn.connect();
-
-        const nreplPort = values['nrepl-port'] ? parseInt(values['nrepl-port'], 10) : undefined;
-        await nrepl({ connection: nreplConn, config, port: nreplPort });
-
-        await nreplConn.disconnect();
+        await withConnection({ config, requireRunning: true }, async (connection) => {
+          const nreplPort = values['nrepl-port'] ? parseInt(values['nrepl-port'], 10) : undefined;
+          await nrepl({ connection, config, port: nreplPort });
+        });
         break;
       }
 
