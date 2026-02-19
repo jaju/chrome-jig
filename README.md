@@ -1,16 +1,16 @@
 # Chrome Jig
 
-A CLI tool for Chrome debugging with script injection, file watching, and Claude skill support.
+The DevTools console, from your terminal and editor.
 
 ## Why This Tool
 
-chrome-jig is a CLI for Chrome debugging workflows: launch, inject scripts, evaluate JavaScript, watch files, and re-inject on change. It uses CDP (Chrome DevTools Protocol) underneath — the same protocol that Chrome MCP, Puppeteer, and other tools use.
+**Evaluate JavaScript in any browser tab from the command line.** Everything runs via CDP `Runtime.evaluate` — the same mechanism as the DevTools console. This bypasses Content-Security-Policy on any page. Globals persist across calls. No script tags, no CORS issues.
 
-**Where it helps over generic CDP tools**: Compound operations that would otherwise require multiple manual steps. A named script registry resolves short names to URLs via project config (`.cjig.json`). File watching detects changes and re-injects automatically. Idempotent launch reuses an existing Chrome instance instead of failing on port conflicts. These are workflow-level conveniences — they compose CDP primitives, they don't extend them.
+**Named script injection with auto-reload.** Register scripts in `.cjig.json`, inject by name, watch files for changes, auto re-inject. The modify → re-inject → exercise loop without leaving your editor.
 
-**Where it doesn't help**: Single evaluations, screenshots, DOM inspection, network traces. Any CDP client can do these equally well. Chrome MCP's `evaluate_script` and this tool's `eval` both call `Runtime.evaluate` in the end.
+**Editor-native via nREPL.** Evaluate ClojureScript from Neovim/Conjure buffers directly in the browser. No browser tab switching, no copy-paste.
 
-**Independent developer workflow**: The CLI is usable without any LLM. `cjig launch && cjig inject my-script && cjig repl` is a complete development loop with no AI in the path.
+**Independent developer workflow.** The CLI is usable without any LLM. `cjig launch && cjig inject my-script && cjig repl` is a complete development loop with no AI in the path.
 
 ## Installation
 
@@ -31,20 +31,28 @@ npm link          # uses nvm's bin directory
 # Launch Chrome with debugging enabled
 cjig launch
 
+# Evaluate JavaScript
+cjig eval "document.title"
+
+# Target a specific tab
+cjig eval --tab "GitHub" "document.title"
+
+# Evaluate a file (bypasses CSP on any page)
+cjig eval-file bundle.js
+
 # Start interactive REPL
 cjig repl
-
-# In REPL:
-> document.title
-"My Page"
-
-> .tabs
-→ [0] My Page
-      https://example.com
-
-> .inject my-harness
-Injected: http://localhost:5173/harnesses/my-harness.js
 ```
+
+## How It Works
+
+All evaluation uses CDP `Runtime.evaluate` in the page's **main world** — the same context as the DevTools console:
+
+- `cjig eval` evaluates an expression via CDP. Bypasses CSP.
+- `cjig inject` fetches the script URL **server-side** (in the Node.js process), then evaluates the content via CDP. Bypasses both CSP and CORS.
+- `cjig eval-file` reads a local file and evaluates its contents via CDP. Bypasses CSP.
+
+Each CLI invocation is a **fresh process**. Tab state does not persist between invocations. Use `--tab` to target a specific tab in one shot, or use `cjig repl` for a persistent session.
 
 ## CLI Commands
 
@@ -60,26 +68,33 @@ cjig status --host=192.168.1.5 # Check remote Chrome
 ### Tab Operations
 
 ```bash
-cjig tabs              # List open tabs
-cjig tab example       # Select tab by URL pattern
-cjig tab 0             # Select tab by index
-cjig open https://...  # Open new tab
+cjig tabs                          # List open tabs (index + title + URL)
+cjig tab "GitHub"                  # Select by title or URL fragment
+cjig tab 2                         # Select by index
+cjig open https://example.com      # Open new tab
 ```
+
+Tab selector: numbers are positional indices, strings search URL and title.
 
 ### Script Injection
 
 ```bash
-cjig inject my-script      # Inject by name (from config)
-cjig inject https://...    # Inject by URL
+cjig inject my-script              # Inject by name (from config)
+cjig inject --tab "app" my-script  # Inject into specific tab
+cjig inject https://...            # Inject by URL
 ```
 
 ### Evaluation
 
 ```bash
-cjig eval "document.title"        # One-shot eval
-cjig eval "window.myApi.status()" # Call injected API
-cjig cljs-eval "(+ 1 2)"          # Evaluate ClojureScript
-cjig repl                         # Interactive REPL
+cjig eval "document.title"                # One-shot eval
+cjig eval --tab "GitHub" "document.title" # Eval in specific tab
+cjig eval "window.myApi.status()"         # Call injected API
+cjig eval-file bundle.js                  # Evaluate a file
+cjig eval-file --tab 2 bundle.js          # File eval in specific tab
+cat script.js | cjig eval-file -          # Pipe from stdin
+cjig cljs-eval "(+ 1 2)"                  # Evaluate ClojureScript
+cjig repl                                 # Interactive REPL
 ```
 
 ### nREPL Server (Editor Integration)
