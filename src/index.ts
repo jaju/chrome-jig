@@ -20,6 +20,7 @@ export { listTabs, selectTab } from './commands/tabs.js';
 export { inject } from './commands/inject.js';
 export { evaluate, formatValue, formatJson } from './commands/eval.js';
 export type { EvalResult } from './commands/eval.js';
+export { evaluateFile } from './commands/eval-file.js';
 
 // ClojureScript
 export { compile } from './cljs/compiler.js';

@@ -14,6 +14,7 @@ import { status } from './commands/status.js';
 import { listTabs, selectTab } from './commands/tabs.js';
 import { inject } from './commands/inject.js';
 import { evaluate, formatValue, formatJson } from './commands/eval.js';
+import { evaluateFile } from './commands/eval-file.js';
 import { evaluateCljs } from './commands/cljs-eval.js';
 import { installSkill, uninstallSkill } from './commands/install-skill.js';
 import { installNvim, uninstallNvim, printSetupSnippets } from './commands/install-nvim.js';
@@ -266,6 +267,26 @@ async function main() {
         const expression = args.join(' ');
         await withConnection({ config, tab: values.tab }, async (connection) => {
           const result = await evaluate(connection, expression);
+
+          if (values.json) {
+            console.log(formatJson(result));
+          } else if (result.success) {
+            console.log(formatValue(result.value));
+          } else {
+            throw new Error(result.error);
+          }
+        });
+        break;
+      }
+
+      case 'eval-file': {
+        if (args.length === 0) {
+          console.error('Usage: cjig eval-file <path|->');
+          process.exit(1);
+        }
+
+        await withConnection({ config, tab: values.tab }, async (connection) => {
+          const result = await evaluateFile(connection, args[0]);
 
           if (values.json) {
             console.log(formatJson(result));
