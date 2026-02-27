@@ -2,6 +2,14 @@
  * Configuration schema types
  */
 
+export interface ConnectionConfig {
+  retries?: number;
+  retryDelayMs?: number;
+  timeout?: number;
+  waitUntil?: 'load' | 'domcontentloaded' | 'networkidle';
+  fallbackHosts?: string[];
+}
+
 export interface GlobalConfig {
   defaults?: {
     port?: number;
@@ -13,6 +21,7 @@ export interface GlobalConfig {
     flags?: string[];
   };
   extensions?: string[];
+  connection?: ConnectionConfig;
 }
 
 export interface ScriptEntry {
@@ -37,6 +46,15 @@ export interface ProjectConfig {
     postInject?: string;
   };
   extensions?: string[];
+  connection?: ConnectionConfig;
+}
+
+export interface ResolvedConnectionConfig {
+  retries: number;
+  retryDelayMs: number;
+  timeout?: number;
+  waitUntil?: 'load' | 'domcontentloaded' | 'networkidle';
+  fallbackHosts: string[];
 }
 
 export interface ResolvedConfig {
@@ -46,6 +64,7 @@ export interface ResolvedConfig {
   chromePath?: string;
   chromeFlags: string[];
   extensions: string[];
+  connection: ResolvedConnectionConfig;
   scripts: {
     baseUrl?: string;
     registry: Record<string, ScriptEntry>;

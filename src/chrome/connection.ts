@@ -3,6 +3,7 @@
  */
 
 import { chromium, Browser, BrowserContext, Page, CDPSession } from 'playwright-core';
+import { NoPageError, EvaluationError, TimeoutError } from '../errors.js';
 
 export interface ChromeTarget {
   id: string;
@@ -15,6 +16,12 @@ export interface ChromeTarget {
 export interface ConnectionOptions {
   host: string;
   port: number;
+}
+
+export interface OpenPageOptions {
+  timeout?: number;
+  waitUntil?: 'load' | 'domcontentloaded' | 'networkidle';
+  noWait?: boolean;
 }
 
 export class ChromeConnection {
@@ -161,13 +168,30 @@ export class ChromeConnection {
   /**
    * Open a new page with the given URL
    */
-  async openPage(url: string): Promise<Page> {
+  async openPage(url: string, options?: OpenPageOptions): Promise<Page> {
     if (!this.context) {
-      throw new Error('Not connected to Chrome');
+      throw new NoPageError('Not connected to Chrome');
     }
 
     const page = await this.context.newPage();
-    await page.goto(url);
+
+    if (options?.noWait) {
+      page.goto(url).catch(() => {}); // fire-and-forget
+    } else {
+      try {
+        await page.goto(url, {
+          timeout: options?.timeout,
+          waitUntil: options?.waitUntil,
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.toLowerCase().includes('timeout')) {
+          throw new TimeoutError(`Navigation timed out: ${url}`);
+        }
+        throw err;
+      }
+    }
+
     this.setCurrentPage(page);
     return page;
   }
@@ -179,7 +203,7 @@ export class ChromeConnection {
    */
   async evaluate<T>(expression: string): Promise<T> {
     if (!this.currentPage) {
-      throw new Error('No page selected');
+      throw new NoPageError();
     }
 
     const cdp = await this.getCDPSession();
@@ -193,7 +217,7 @@ export class ChromeConnection {
       const text = result.exceptionDetails.exception?.description
         ?? result.exceptionDetails.text
         ?? 'Evaluation failed';
-      throw new Error(text);
+      throw new EvaluationError(text);
     }
 
     return result.result.value as T;
@@ -226,7 +250,7 @@ export class ChromeConnection {
    */
   async reload(): Promise<void> {
     if (!this.currentPage) {
-      throw new Error('No page selected');
+      throw new NoPageError();
     }
 
     await this.currentPage.reload();
@@ -237,7 +261,7 @@ export class ChromeConnection {
    */
   async getCDPSession(): Promise<CDPSession> {
     if (!this.currentPage) {
-      throw new Error('No page selected');
+      throw new NoPageError();
     }
 
     if (!this.cdpSession) {

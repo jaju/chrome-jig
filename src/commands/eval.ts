@@ -3,11 +3,14 @@
  */
 
 import { ChromeConnection } from '../chrome/connection.js';
+import { CjigError, type ErrorCategory } from '../errors.js';
 
 export interface EvalResult {
   success: boolean;
   value?: unknown;
   error?: string;
+  category?: ErrorCategory;
+  retryable?: boolean;
 }
 
 export async function evaluate(
@@ -18,6 +21,14 @@ export async function evaluate(
     const value = await connection.evaluate(expression);
     return { success: true, value };
   } catch (err) {
+    if (err instanceof CjigError) {
+      return {
+        success: false,
+        error: err.message,
+        category: err.category,
+        retryable: err.retryable,
+      };
+    }
     return {
       success: false,
       error: err instanceof Error ? err.message : String(err),

@@ -2,14 +2,20 @@
  * Chrome Debug REPL - Library exports
  */
 
+// Errors
+export { CjigError, ConnectionError, TimeoutError, NoPageError, EvaluationError } from './errors.js';
+export type { ErrorCategory } from './errors.js';
+
 // Configuration
 export { loadConfig, loadGlobalConfig, loadProjectConfig, findProjectConfig, resolveScriptUrl, getScriptEntry } from './config/loader.js';
 export { getXDGPaths, getConfigPath, getChromeProfileDir, getSessionStatePath } from './config/xdg.js';
-export type { GlobalConfig, ProjectConfig, ScriptEntry, ResolvedConfig } from './config/schema.js';
+export type { GlobalConfig, ProjectConfig, ScriptEntry, ResolvedConfig, ConnectionConfig, ResolvedConnectionConfig } from './config/schema.js';
 
 // Chrome
 export { ChromeConnection, createConnection } from './chrome/connection.js';
-export type { ChromeTarget, ConnectionOptions } from './chrome/connection.js';
+export type { ChromeTarget, ConnectionOptions, OpenPageOptions } from './chrome/connection.js';
+export { connectWithResilience, classifyConnectError } from './chrome/resilience.js';
+export type { ResilienceOptions } from './chrome/resilience.js';
 export { launchChrome, findChrome, isProfileLocked, isPortInUse, getStatus, loadSessionState, saveSessionState } from './chrome/launcher.js';
 export type { LaunchOptions, LaunchResult, SessionState } from './chrome/launcher.js';
 

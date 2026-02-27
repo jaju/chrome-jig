@@ -6,9 +6,11 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { getConfigPath } from './xdg.js';
 import {
+  ConnectionConfig,
   GlobalConfig,
   ProjectConfig,
   ResolvedConfig,
+  ResolvedConnectionConfig,
   ScriptEntry,
   DEFAULT_CHROME_FLAGS,
 } from './schema.js';
@@ -17,6 +19,25 @@ import { loadProfileConfig } from './profiles.js';
 
 function deduplicateExtensions(paths: string[]): string[] {
   return [...new Set(paths.filter(Boolean))];
+}
+
+const CONNECTION_DEFAULTS: ResolvedConnectionConfig = {
+  retries: 3,
+  retryDelayMs: 500,
+  fallbackHosts: [],
+};
+
+function mergeConnectionConfig(...sources: (ConnectionConfig | undefined)[]): ResolvedConnectionConfig {
+  const merged = { ...CONNECTION_DEFAULTS };
+  for (const source of sources) {
+    if (!source) continue;
+    if (source.retries !== undefined) merged.retries = source.retries;
+    if (source.retryDelayMs !== undefined) merged.retryDelayMs = source.retryDelayMs;
+    if (source.timeout !== undefined) merged.timeout = source.timeout;
+    if (source.waitUntil !== undefined) merged.waitUntil = source.waitUntil;
+    if (source.fallbackHosts !== undefined) merged.fallbackHosts = source.fallbackHosts;
+  }
+  return merged;
 }
 
 const PROJECT_CONFIG_NAMES = [
@@ -66,6 +87,7 @@ export interface LoadConfigOptions {
   host?: string;
   extensions?: string[];
   projectConfigPath?: string;
+  connection?: ConnectionConfig;
 }
 
 export function loadConfig(options: LoadConfigOptions = {}): ResolvedConfig {
@@ -89,6 +111,13 @@ export function loadConfig(options: LoadConfigOptions = {}): ResolvedConfig {
     ...(globalConfig?.extensions ?? []),
   ]);
 
+  // Connection: CLI > project > global > defaults
+  const connection = mergeConnectionConfig(
+    globalConfig?.connection,
+    projectConfig?.connection,
+    options.connection,
+  );
+
   return {
     port,
     profile,
@@ -96,6 +125,7 @@ export function loadConfig(options: LoadConfigOptions = {}): ResolvedConfig {
     chromePath: envConfig.chromePath ?? globalConfig?.chrome?.path,
     chromeFlags: globalConfig?.chrome?.flags ?? DEFAULT_CHROME_FLAGS,
     extensions,
+    connection,
     scripts: {
       baseUrl: envConfig.scriptsBase ?? projectConfig?.scripts?.baseUrl,
       registry: projectConfig?.scripts?.registry ?? {},

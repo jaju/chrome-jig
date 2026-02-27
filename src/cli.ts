@@ -7,7 +7,9 @@
 import { parseArgs } from 'node:util';
 import { loadConfig } from './config/loader.js';
 import { ChromeConnection, createConnection } from './chrome/connection.js';
+import { connectWithResilience } from './chrome/resilience.js';
 import { ResolvedConfig } from './config/schema.js';
+import { CjigError, ConnectionError } from './errors.js';
 import { Repl } from './repl/repl.js';
 import { launch } from './commands/launch.js';
 import { status } from './commands/status.js';
@@ -65,6 +67,11 @@ Options:
   --extensions <list> Comma-separated extension paths (launch)
   --tab <selector>    Select tab before executing (eval, eval-file, inject, cljs-eval)
   --json              Output as JSON (eval/cljs-eval/connection-info)
+  --timeout <ms>      Navigation timeout in ms (open)
+  --wait-until <s>    Navigation strategy: domcontentloaded|load|networkidle (open)
+  --no-wait           Fire-and-forget navigation (open)
+  --retries <n>       Connection retry count (default: 3)
+  --retry-delay <ms>  Initial retry delay in ms (default: 500)
   --help, -h          Show help
 
 Tab selector:
@@ -89,6 +96,8 @@ interface RunOptions {
   config: ResolvedConfig;
   tab?: string;
   requireRunning?: boolean;
+  retries?: number;
+  retryDelayMs?: number;
 }
 
 async function withConnection<T>(
@@ -96,18 +105,27 @@ async function withConnection<T>(
   work: (connection: ChromeConnection) => Promise<T>,
 ): Promise<T> {
   const { config } = options;
-  const connection = createConnection({ host: config.host, port: config.port });
 
   if (options.requireRunning) {
-    const running = await connection.isRunning();
+    const probe = createConnection({ host: config.host, port: config.port });
+    const running = await probe.isRunning();
     if (!running) {
-      throw new Error(
+      throw new ConnectionError(
         `Chrome not running on ${config.host}:${config.port}\nRun: cjig launch`,
+        config.host,
+        config.port,
       );
     }
   }
 
-  await connection.connect();
+  const connection = await connectWithResilience({
+    host: config.host,
+    port: config.port,
+    retries: options.retries ?? config.connection.retries,
+    retryDelayMs: options.retryDelayMs ?? config.connection.retryDelayMs,
+    fallbackHosts: config.connection.fallbackHosts,
+  });
+
   try {
     if (options.tab) {
       const tab = await selectTab(connection, options.tab);
@@ -134,6 +152,11 @@ async function main() {
       stdio: { type: 'boolean' },
       url: { type: 'string' },
       'nrepl-port': { type: 'string' },
+      timeout: { type: 'string' },
+      'wait-until': { type: 'string' },
+      'no-wait': { type: 'boolean' },
+      retries: { type: 'string' },
+      'retry-delay': { type: 'string' },
       help: { type: 'boolean', short: 'h' },
     },
   });
@@ -151,12 +174,24 @@ async function main() {
     ? values.extensions.split(',').map((s) => s.trim()).filter(Boolean)
     : undefined;
 
+  // Parse connection overrides from CLI
+  const cliRetries = values.retries ? parseInt(values.retries, 10) : undefined;
+  const cliRetryDelay = values['retry-delay'] ? parseInt(values['retry-delay'], 10) : undefined;
+  const cliTimeout = values.timeout ? parseInt(values.timeout, 10) : undefined;
+  const cliWaitUntil = values['wait-until'] as 'load' | 'domcontentloaded' | 'networkidle' | undefined;
+
   // Load configuration
   const config = loadConfig({
     port: values.port ? parseInt(values.port, 10) : undefined,
     host: values.host,
     profile: values.profile,
     extensions: cliExtensions,
+    connection: {
+      retries: cliRetries,
+      retryDelayMs: cliRetryDelay,
+      timeout: cliTimeout,
+      waitUntil: cliWaitUntil,
+    },
   });
 
   try {
@@ -280,9 +315,17 @@ async function main() {
         }
 
         await withConnection({ config }, async (connection) => {
-          const page = await connection.openPage(args[0]);
-          const title = await page.title();
-          console.log(`Opened: ${title || args[0]}`);
+          const page = await connection.openPage(args[0], {
+            timeout: cliTimeout ?? config.connection.timeout,
+            waitUntil: cliWaitUntil ?? config.connection.waitUntil,
+            noWait: values['no-wait'],
+          });
+          if (values['no-wait']) {
+            console.log(`Opening: ${args[0]}`);
+          } else {
+            const title = await page.title();
+            console.log(`Opened: ${title || args[0]}`);
+          }
         });
         break;
       }
@@ -587,12 +630,24 @@ async function main() {
         process.exit(1);
     }
   } catch (err) {
-    if (err instanceof Error) {
-      console.error(`Error: ${err.message}`);
+    if (err instanceof CjigError) {
+      if (values.json) {
+        console.error(JSON.stringify(err.toJSON()));
+      } else {
+        console.error(`Error [${err.category}]: ${err.message}`);
+      }
+      process.exit(err.exitCode);
+    } else if (err instanceof Error) {
+      if (values.json) {
+        console.error(JSON.stringify({ error: err.message }));
+      } else {
+        console.error(`Error: ${err.message}`);
+      }
+      process.exit(1);
     } else {
       console.error(`Error: ${err}`);
+      process.exit(1);
     }
-    process.exit(1);
   }
 }
 
