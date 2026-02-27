@@ -42,8 +42,10 @@ chrome-jig/
 ├── src/
 │   ├── cli.ts                # Command-line argument parsing & routing
 │   ├── index.ts              # Library exports for programmatic use
+│   ├── errors.ts             # Typed error hierarchy (CjigError subclasses)
 │   ├── chrome/
 │   │   ├── connection.ts     # CDP wrapper via Playwright
+│   │   ├── resilience.ts     # Retry + host fallback for connections
 │   │   └── launcher.ts       # Chrome process management
 │   ├── config/
 │   │   ├── loader.ts         # Config discovery & merging
@@ -102,6 +104,35 @@ Uses `playwright-core` (not the full Playwright) as a high-level CDP client. Thi
 - Robust error handling
 
 The `ChromeConnection` class (`src/chrome/connection.ts`) wraps Playwright's `chromium.connectOverCDP()`.
+
+### Connection Resilience
+
+`src/chrome/resilience.ts` adds retry with exponential backoff and optional host fallback on top of `ChromeConnection.connect()`. Architecture:
+
+```
+CLI flags/config  →  withConnection  →  connectWithResilience  →  ChromeConnection.connect()
+                     (lifecycle)        (retry + fallback)        (single-attempt primitive)
+```
+
+`ChromeConnection` stays a clean single-attempt primitive. `connectWithResilience` classifies errors (`EPERM`/`ECONNREFUSED` → skip host, timeout → retry, fatal → throw) and retries with backoff. Defaults: 3 retries, 500ms initial delay.
+
+Users hitting IPv6/IPv4 issues configure fallback hosts explicitly:
+```json
+{ "connection": { "fallbackHosts": ["127.0.0.1"] } }
+```
+
+### Typed Errors
+
+`src/errors.ts` defines a typed error hierarchy:
+
+| Error | Category | Retryable | Exit Code |
+|-------|----------|-----------|-----------|
+| `ConnectionError` | `connection` | yes | 2 |
+| `TimeoutError` | `timeout` | yes | 3 |
+| `NoPageError` | `no-page` | no | 4 |
+| `EvaluationError` | `evaluation` | no | 5 |
+
+All inherit from `CjigError` which carries `category`, `retryable`, `exitCode`, and `toJSON()`. The CLI top-level catch uses these for structured error output and correct exit codes.
 
 ### XDG Directory Layout
 
@@ -192,7 +223,7 @@ cjig repl                     # Interactive testing
 
 ### Why withConnection
 
-The `withConnection` helper in `cli.ts` extracts the repeated connect → work → disconnect lifecycle shared by all connection-using commands. It handles optional `--tab` selection and `requireRunning` pre-checks, keeping each command case focused on its own logic. Errors throw (not `process.exit`) so the `finally` block always runs `disconnect()`.
+The `withConnection` helper in `cli.ts` extracts the repeated connect → work → disconnect lifecycle shared by all connection-using commands. It calls `connectWithResilience` (not raw `connect`) for automatic retry on transient failures. It handles optional `--tab` selection and `requireRunning` pre-checks, keeping each command case focused on its own logic. Errors throw (not `process.exit`) so the `finally` block always runs `disconnect()`.
 
 ### Why --tab Instead of Persistent State
 
@@ -237,8 +268,10 @@ Named scripts allow:
 
 ### Error Handling
 
-- Commands return result objects with `success` boolean
-- CLI exits with code 1 on failure
+- Commands return result objects with `success` boolean (and optional `category`, `retryable` fields)
+- `CjigError` subclasses carry typed exit codes: 2=connection, 3=timeout, 4=no-page, 5=eval-error, 1=unknown
+- `--json` errors emit structured JSON on stderr with `{ error, category, retryable, exitCode }`
+- Non-`CjigError` failures still exit with code 1
 - REPL catches errors and continues
 
 ## Integration Points

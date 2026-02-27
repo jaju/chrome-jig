@@ -72,6 +72,9 @@ Prefer `cjig` CLI commands over Chrome DevTools MCP tools whenever possible:
 | `cjig tabs` | List open tabs (index + title + URL) |
 | `cjig tab <pattern\|index>` | Switch to a tab by title/URL pattern or index |
 | `cjig open <url>` | Open a new tab |
+| `cjig open --timeout <ms> <url>` | Open with custom navigation timeout |
+| `cjig open --wait-until <strategy> <url>` | Wait strategy: `domcontentloaded\|load\|networkidle` |
+| `cjig open --no-wait <url>` | Fire-and-forget (don't wait for navigation) |
 | `--tab <selector>` | Flag for eval, eval-file, inject, cljs-eval |
 
 Tab selector: numbers select by index (0, 1, 2...), strings search URL and title.
@@ -152,6 +155,10 @@ The `.cjig.json` file defines the development environment:
     }
   },
   "extensions": ["/path/to/unpacked-extension"],
+  "connection": {
+    "retries": 3,
+    "fallbackHosts": ["127.0.0.1"]
+  },
   "watch": {
     "paths": ["dist/harnesses/*.js"],
     "debounce": 300
@@ -162,6 +169,8 @@ The `.cjig.json` file defines the development environment:
 Key fields:
 
 - `extensions` — unpacked extension paths to load on launch
+- `connection.retries` — retry count for transient connect failures (default: 3)
+- `connection.fallbackHosts` — additional hosts to try (e.g. `["127.0.0.1"]` for IPv6 issues)
 - `scripts.registry[name].path` — script filename, resolved against `scripts.baseUrl`
 - `scripts.registry[name].windowApi` — the global object the script exposes
 - `scripts.registry[name].alias` — short name for the API
@@ -176,6 +185,24 @@ Key fields:
 4. **Inject harness** by name: `cjig inject <name>`
 5. **Exercise** via eval using `windowApi` or `alias` from the registry
 6. **For iterative development**, suggest `.watch on` in the REPL for live reload
+
+## Connection Reliability
+
+All connection-using commands automatically retry up to 3 times with exponential backoff on transient failures (EPERM, ECONNREFUSED, timeout). Override with `--retries <n>` and `--retry-delay <ms>`.
+
+## Error Handling
+
+cjig uses typed exit codes:
+
+| Exit Code | Category | Meaning |
+|-----------|----------|---------|
+| 0 | — | Success |
+| 2 | `connection` | Cannot connect to Chrome |
+| 3 | `timeout` | Navigation timed out |
+| 4 | `no-page` | No page/tab available |
+| 5 | `evaluation` | JavaScript evaluation error |
+
+With `--json`, errors are structured JSON on stderr: `{"error":"...","category":"connection","retryable":true,"exitCode":2}`
 
 ## Limitations
 

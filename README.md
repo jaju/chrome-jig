@@ -116,6 +116,9 @@ cjig tabs                          # List open tabs (index + title + URL)
 cjig tab "GitHub"                  # Select by title or URL fragment
 cjig tab 2                         # Select by index
 cjig open https://example.com      # Open new tab
+cjig open --timeout 60000 https://heavy-page.com  # Custom timeout
+cjig open --wait-until domcontentloaded https://example.com
+cjig open --no-wait https://slow-page.com          # Fire-and-forget
 ```
 
 Tab selector: numbers are positional indices, strings search URL and title.
@@ -228,7 +231,12 @@ const browser = await chromium.connectOverCDP(info.endpoint);
     "path": "/path/to/chrome",
     "flags": ["--disable-background-timer-throttling"]
   },
-  "extensions": ["/path/to/global-extension"]
+  "extensions": ["/path/to/global-extension"],
+  "connection": {
+    "retries": 3,
+    "retryDelayMs": 500,
+    "fallbackHosts": ["127.0.0.1"]
+  }
 }
 ```
 
@@ -270,6 +278,52 @@ const browser = await chromium.connectOverCDP(info.endpoint);
 ```
 
 Extension merge priority: CLI flags > project config > profile config > global config.
+
+### Connection Settings
+
+Connection resilience settings can be configured at any level (global, project, or CLI flags):
+
+```json
+{
+  "connection": {
+    "retries": 3,
+    "retryDelayMs": 500,
+    "timeout": 30000,
+    "waitUntil": "domcontentloaded",
+    "fallbackHosts": ["127.0.0.1"]
+  }
+}
+```
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `retries` | `3` | Number of connection retry attempts |
+| `retryDelayMs` | `500` | Initial delay between retries (doubles each attempt) |
+| `timeout` | (Playwright default) | Navigation timeout in ms for `open` |
+| `waitUntil` | `load` | Navigation strategy: `load`, `domcontentloaded`, `networkidle` |
+| `fallbackHosts` | `[]` | Additional hosts to try on connect failure (e.g. `["127.0.0.1"]` for IPv6/IPv4 issues) |
+
+CLI flags `--retries`, `--retry-delay`, `--timeout`, `--wait-until`, and `--no-wait` override config values.
+
+## Error Handling
+
+cjig uses typed exit codes for machine-parseable error handling:
+
+| Exit Code | Category | Retryable | Meaning |
+|-----------|----------|-----------|---------|
+| 0 | — | — | Success |
+| 1 | — | — | Unknown error |
+| 2 | `connection` | yes | Cannot connect to Chrome |
+| 3 | `timeout` | yes | Navigation timed out |
+| 4 | `no-page` | no | No page/tab available |
+| 5 | `evaluation` | no | JavaScript evaluation error |
+
+With `--json`, errors are emitted as structured JSON on stderr:
+
+```bash
+cjig eval --json --port 9999 "1+1"
+# stderr: {"error":"Failed to connect...","category":"connection","retryable":true,"exitCode":2}
+```
 
 ## Environment Variables
 

@@ -7,13 +7,13 @@ describe('ReplProtocol', () => {
     it('maps bare text to eval request', () => {
       const protocol = new ReplProtocol();
       const result = protocol.parse('document.title');
-      expect(result).toEqual({ method: 'eval', params: { code: 'document.title' } });
+      expect(result).toEqual({ method: 'eval', params: { code: 'document.title', lang: 'js' } });
     });
 
     it('trims whitespace from bare text', () => {
       const protocol = new ReplProtocol();
       const result = protocol.parse('  1 + 1  ');
-      expect(result).toEqual({ method: 'eval', params: { code: '1 + 1' } });
+      expect(result).toEqual({ method: 'eval', params: { code: '1 + 1', lang: 'js' } });
     });
 
     it('maps .tabs to tabs request', () => {
